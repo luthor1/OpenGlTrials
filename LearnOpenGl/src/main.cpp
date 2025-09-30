@@ -11,7 +11,7 @@ void processInput(GLFWwindow* window);
 void updateFPSCounter(GLFWwindow* window);
 std::string loadShaderSrc(const char* filePath);
 
-// --- EK: renk için global değişken (uniform'a göndereceğiz) ---
+//  Global var for color
 float colorR = 0.0f;
 float colorG = 1.0f;
 float colorB = 0.0f;
@@ -94,7 +94,7 @@ int main()
 	glAttachShader(shaderProgram, fragmentShader);
 	glLinkProgram(shaderProgram);
 
-	// --- EK: program link kontrolü (düzeltme: glGetProgramiv kullanılmalı) ---
+
 	glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
 	if (!success)
 	{
@@ -111,7 +111,7 @@ int main()
 		-0.5f, -0.5f, 0.0f,
 		 0.0f,  0.5f, 0.0f ,
 		 0.5f, -0.5f, 0.0f,
-		 0.5f,  0.5f, 0.0f // we can add more vertices here (sonuncu vertex artık kullanılmıyor)
+		 0.5f,  0.5f, 0.0f // we can add more vertices here
 	};
 
 	// VAO, VBO
@@ -130,7 +130,6 @@ int main()
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 	glEnableVertexAttribArray(0);
 
-	// --- EK: uniform location alındı (fragment shader içinde 'uniform vec4 ourColor;' olmalı) ---
 	int vertexColorLocation = glGetUniformLocation(shaderProgram, "ourColor");
 
 	while (!glfwWindowShouldClose(window))
@@ -146,10 +145,9 @@ int main()
 		glBindVertexArray(VAO);
 		glUseProgram(shaderProgram);
 
-		// --- EK: uniform ile renk gönder ---
+		// set uniform color from global var
 		glUniform4f(vertexColorLocation, colorR, colorG, colorB, 1.0f);
 
-		// --- ORJİNAL HÂLE GERİ: sadece üçgen çiziliyor (ilk 3 vertex) ---
 		glDrawArrays(GL_TRIANGLES, 0, 3);
 
 		// send new frame to window
@@ -176,10 +174,10 @@ void processInput(GLFWwindow* window)
 
 	// --- EK: klavyeden renk değiştirme örneği ---
 	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-		colorR = 1.0f; colorG = 0.0f; colorB = 0.0f; // kırmızı
+		colorR = 1.0f; colorG = 0.0f; colorB = 0.0f; // red
 	}
 	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-		colorR = 0.0f; colorG = 1.0f; colorB = 0.0f; // yeşil
+		colorR = 0.0f; colorG = 1.0f; colorB = 0.0f; //green
 	}
 }
 
