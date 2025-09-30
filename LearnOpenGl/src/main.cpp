@@ -1,4 +1,4 @@
-#include <iostream>
+﻿#include <iostream>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <fstream>
@@ -11,6 +11,10 @@ void processInput(GLFWwindow* window);
 void updateFPSCounter(GLFWwindow* window);
 std::string loadShaderSrc(const char* filePath);
 
+// --- EK: renk için global değişken (uniform'a göndereceğiz) ---
+float colorR = 0.0f;
+float colorG = 1.0f;
+float colorB = 0.0f;
 
 int main()
 {
@@ -27,7 +31,7 @@ int main()
 
 	GLFWwindow* window = glfwCreateWindow(800, 600, "LearnOpenGL", NULL, NULL);
 
-	if(window == NULL)
+	if (window == NULL)
 	{// Check if window was created
 		std::cout << "Failed to create GLFW window" << std::endl;
 		glfwTerminate();
@@ -36,7 +40,7 @@ int main()
 
 	glfwMakeContextCurrent(window);
 
-	if(!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
 	{
 		std::cout << "Failed to initialize GLAD" << std::endl;
 		return -1;
@@ -61,7 +65,7 @@ int main()
 
 	// catch error
 	glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
-	if(!success)
+	if (!success)
 	{
 		glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
 		std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
@@ -71,7 +75,7 @@ int main()
 	unsigned int fragmentShader;
 	fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
 	std::string fragShaderSrc = loadShaderSrc("assets/fragment_core.glsl");
-	const GLchar *fragShader = fragShaderSrc.c_str();
+	const GLchar* fragShader = fragShaderSrc.c_str();
 	glShaderSource(fragmentShader, 1, &fragShader, NULL);
 	glCompileShader(fragmentShader);
 
@@ -90,24 +94,24 @@ int main()
 	glAttachShader(shaderProgram, fragmentShader);
 	glLinkProgram(shaderProgram);
 
-	// catch error
-	glGetShaderiv(shaderProgram, GL_LINK_STATUS, &success);
+	// --- EK: program link kontrolü (düzeltme: glGetProgramiv kullanılmalı) ---
+	glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
 	if (!success)
 	{
-		glGetShaderInfoLog(shaderProgram, 512, NULL, infoLog);
-		std::cout << "ERROR::SHADER::ShaderProgram::COMPILATION_FAILED\n" << infoLog << std::endl;
+		glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
+		std::cout << "ERROR::SHADER::ShaderProgram::LINKING_FAILED\n" << infoLog << std::endl;
 	}
 
 	glDeleteShader(vertexShader);
 	glDeleteShader(fragmentShader);
-	
+
 	// vertex array
 
 	float vertices[] = {
-		-0.5f, -0.5f, 0.0f, 
-		 0.0f,  0.5f, 0.0f , 
-		 0.5f, -0.5f, 0.0f, 
-		 0.5f,  0.5f, 0.0f // we can add more vertices here
+		-0.5f, -0.5f, 0.0f,
+		 0.0f,  0.5f, 0.0f ,
+		 0.5f, -0.5f, 0.0f,
+		 0.5f,  0.5f, 0.0f // we can add more vertices here (sonuncu vertex artık kullanılmıyor)
 	};
 
 	// VAO, VBO
@@ -126,18 +130,26 @@ int main()
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 	glEnableVertexAttribArray(0);
 
-	while(!glfwWindowShouldClose(window))
+	// --- EK: uniform location alındı (fragment shader içinde 'uniform vec4 ourColor;' olmalı) ---
+	int vertexColorLocation = glGetUniformLocation(shaderProgram, "ourColor");
+
+	while (!glfwWindowShouldClose(window))
 	{
 		// process input
 		processInput(window);
 
 		// rendering commands here
-		glClearColor(0.0f, 0.0f, 0.0f, 1.0f); 
+		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
 
 		// Draw shapes
 		glBindVertexArray(VAO);
 		glUseProgram(shaderProgram);
+
+		// --- EK: uniform ile renk gönder ---
+		glUniform4f(vertexColorLocation, colorR, colorG, colorB, 1.0f);
+
+		// --- ORJİNAL HÂLE GERİ: sadece üçgen çiziliyor (ilk 3 vertex) ---
 		glDrawArrays(GL_TRIANGLES, 0, 3);
 
 		// send new frame to window
@@ -156,11 +168,19 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
 	glViewport(0, 0, width, height);
 }
-	
+
 void processInput(GLFWwindow* window)
 {
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, true);
+
+	// --- EK: klavyeden renk değiştirme örneği ---
+	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+		colorR = 1.0f; colorG = 0.0f; colorB = 0.0f; // kırmızı
+	}
+	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+		colorR = 0.0f; colorG = 1.0f; colorB = 0.0f; // yeşil
+	}
 }
 
 void updateFPSCounter(GLFWwindow* window)
