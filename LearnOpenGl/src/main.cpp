@@ -172,13 +172,17 @@ void processInput(GLFWwindow* window)
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, true);
 
-	// --- EK: klavyeden renk değiştirme örneği ---
-	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+	//  klavyeden renk değiştirme  ---
+	if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) {
 		colorR = 1.0f; colorG = 0.0f; colorB = 0.0f; // red
 	}
-	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+	if (glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS) {
 		colorR = 0.0f; colorG = 1.0f; colorB = 0.0f; //green
 	}
+	if (glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS) {
+		colorR = 0.0f; colorG = 0.0f; colorB = 1.0f; //blue
+	}
+	
 }
 
 void updateFPSCounter(GLFWwindow* window)
