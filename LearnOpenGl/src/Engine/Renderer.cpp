@@ -1,13 +1,17 @@
 #include "Renderer.h"
 #include "ResourceManager.h"
+#include "SimulationManager.h"
+#include "Camera.h"
 #include <glad/glad.h>
 
 std::shared_ptr<Framebuffer> Renderer::s_MultisampleFB = nullptr;
 std::shared_ptr<Framebuffer> Renderer::s_IntermediateFB = nullptr;
 std::shared_ptr<Framebuffer> Renderer::s_ViewportFB = nullptr;
-std::shared_ptr<Shader> Renderer::s_PostProcessShader = nullptr;
 unsigned int Renderer::s_QuadVAO = 0;
 unsigned int Renderer::s_QuadVBO = 0;
+std::shared_ptr<Shader> Renderer::s_ViewportShader = nullptr;
+std::shared_ptr<Shader> Renderer::s_SkyboxShader = nullptr;
+glm::vec3 Renderer::s_BlackHolePos = glm::vec3(0,0,0);
 
 void Renderer::Init() {
     s_MultisampleFB = std::make_shared<Framebuffer>(1280, 720, 4); // 4x MSAA
@@ -25,7 +29,8 @@ void Renderer::Init() {
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
 
-    s_PostProcessShader = ResourceManager::Get().LoadShader("PostProcess", "assets/post_process_vertex.glsl", "assets/post_process.glsl");
+    s_ViewportShader = ResourceManager::Get().LoadShader("Viewport", "assets/post_process_vertex.glsl", "assets/post_process.glsl");
+    s_SkyboxShader = ResourceManager::Get().LoadShader("Skybox", "assets/skybox_vertex.glsl", "assets/skybox_fragment.glsl");
 }
 
 void Renderer::Shutdown() {
@@ -49,18 +54,38 @@ void Renderer::EndFrame() {
 }
 
 void Renderer::RenderToViewport() {
-    s_ViewportFB->Bind(); // Render post-process into Viewport FBO (which ImGui shows)
+    s_ViewportFB->Bind();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    s_PostProcessShader->use();
-    s_PostProcessShader->setInt("screenTexture", 0);
-    s_PostProcessShader->setBool("bloom", true);
-    s_PostProcessShader->setFloat("exposure", 1.1f);
+    s_ViewportShader->use();
+    s_ViewportShader->setInt("screenTexture", 0);
+    s_ViewportShader->setBool("bloom", true);
+    s_ViewportShader->setFloat("exposure", 1.1f);
     
+    // God-Level: Pass Matrices for Screenspace calculations (Lensing)
+    Camera& cam = SimulationManager::Get().GetCamera();
+    float aspect = (float)Renderer::GetViewportWidth() / (float)Renderer::GetViewportHeight();
+    glm::mat4 projection = glm::perspective(glm::radians(45.0f), aspect, 0.1f, 1000.0f);
+    
+    s_ViewportShader->setMat4("view", cam.GetViewMatrix());
+    s_ViewportShader->setMat4("projection", projection);
+    s_ViewportShader->setVec3("blackHolePos", s_BlackHolePos); 
+
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, s_IntermediateFB->GetTexture());
     glBindVertexArray(s_QuadVAO);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     s_ViewportFB->Unbind();
+}
+
+void Renderer::RenderSkybox(const glm::mat4& view, const glm::mat4& projection) {
+    glDepthFunc(GL_LEQUAL);
+    s_SkyboxShader->use();
+    s_SkyboxShader->setMat4("invView", glm::inverse(view));
+    s_SkyboxShader->setMat4("invProjection", glm::inverse(projection));
+    
+    glBindVertexArray(s_QuadVAO);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glDepthFunc(GL_LESS);
 }
 
 void Renderer::Resize(int w, int h) {

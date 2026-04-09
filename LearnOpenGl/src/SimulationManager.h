@@ -19,6 +19,7 @@ public:
     int GetActiveIndex() const { return m_ActiveIndex; }
 
     Camera& GetCamera() { return m_Camera; }
+    void RenderCurrentSimulation();
 
     bool IsRunning() const { return m_IsRunning; }
     bool IsPaused() const { return m_IsPaused; }

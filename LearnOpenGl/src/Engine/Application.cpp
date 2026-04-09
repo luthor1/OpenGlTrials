@@ -37,9 +37,17 @@ void Application::Run() {
 
         // 3. Main Scenic Rendering
         Renderer::BeginFrame();
-        if (auto active = SimulationManager::Get().GetActive()) {
-            active->Render();
-        }
+        
+        Camera& cam = SimulationManager::Get().GetCamera();
+        float aspect = (float)Renderer::GetViewportWidth() / (float)Renderer::GetViewportHeight();
+        glm::mat4 projection = glm::perspective(glm::radians(45.0f), aspect, 0.1f, 1000.0f);
+
+        // 1. Procedural Skybox (Rendered first with GL_LEQUAL depth)
+        Renderer::RenderSkybox(cam.GetViewMatrix(), projection);
+
+        // 2. Main Simulation
+        SimulationManager::Get().RenderCurrentSimulation();
+        
         Renderer::EndFrame();
 
         // 4. Post-Process & FBO Resolve

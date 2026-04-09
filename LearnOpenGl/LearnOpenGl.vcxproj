@@ -153,6 +153,7 @@
     <ClCompile Include="src\Engine\Renderer.cpp" />
     <ClCompile Include="src\Engine\ResourceManager.cpp" />
     <ClCompile Include="src\Editor\EditorLayer.cpp" />
+    <ClCompile Include="src\SpaceTimeSim.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\imgui\imconfig.h" />
@@ -185,12 +186,19 @@
     <ClInclude Include="src\Engine\ResourceManager.h" />
     <ClInclude Include="src\Engine\SpatialGrid.h" />
     <ClInclude Include="src\Editor\EditorLayer.h" />
+    <ClInclude Include="src\SpaceTimeSim.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="assets\fragment_core.glsl" />
     <None Include="assets\vertex_core.glsl" />
     <None Include="assets\particle_vertex.glsl" />
     <None Include="assets\particle_fragment.glsl" />
+    <None Include="assets\star_sprite_vertex.glsl" />
+    <None Include="assets\star_sprite_fragment.glsl" />
+    <None Include="assets\skybox_vertex.glsl" />
+    <None Include="assets\skybox_fragment.glsl" />
+    <None Include="assets\spacetime_grid_vertex.glsl" />
+    <None Include="assets\spacetime_grid_fragment.glsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

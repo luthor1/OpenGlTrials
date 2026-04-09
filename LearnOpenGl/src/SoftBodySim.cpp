@@ -1,4 +1,5 @@
 #include "SoftBodySim.h"
+#include "MeshLibrary.h"
 #include "Shader.h"
 #include "SimulationManager.h"
 #include "Engine/ResourceManager.h"
@@ -114,29 +115,49 @@ void SoftBodySim::AddConstraint(int i, int j) {
 void SoftBodySim::Update(float dt) {
     if (dt > 0.02f) dt = 0.02f;
     
-    // 1. Predict Position
+    // Moving Collision Sphere
+    static float time = 0.0f;
+    time += dt * 0.5f;
+    glm::vec3 spherePos = glm::vec3(sin(time) * 1.5f, 0.75f, cos(time * 0.7f) * 1.5f);
+    float sphereRadius = 0.8f;
+    m_LastSpherePos = spherePos;
+
+    // 1. Predict Position with Damping
     for (auto& p : m_Particles) {
         p.Velocity += glm::vec3(0, -m_Gravity, 0) * dt;
+        p.Velocity *= 0.99f; 
         p.OldPosition = p.Position;
         p.Position += p.Velocity * dt;
     }
 
     // 2. Solve Constraints (Iterative PBD)
-    for (int iter = 0; iter < 4; iter++) {
+    for (int iter = 0; iter < 5; iter++) {
         for (const auto& c : m_Constraints) {
             glm::vec3 dir = m_Particles[c.p2].Position - m_Particles[c.p1].Position;
             float dist = glm::length(dir);
             if (dist < 0.0001f) continue;
             float corr = (dist - c.restLength) / dist;
-            m_Particles[c.p1].Position += 0.5f * dir * corr;
-            m_Particles[c.p2].Position -= 0.5f * dir * corr;
+            float m1 = m_Particles[c.p1].Mass;
+            float m2 = m_Particles[c.p2].Mass;
+            m_Particles[c.p1].Position += (m2 / (m1 + m2)) * dir * corr;
+            m_Particles[c.p2].Position -= (m1 / (m1 + m2)) * dir * corr;
         }
 
-        // Fast Collisions & Boundaries
+        // Collision Handling
         for (auto& p : m_Particles) {
-            if (p.Position.y < 0.0f) { p.Position.y = 0.0f; p.Velocity.y *= -0.5f; }
-            if (std::abs(p.Position.x) > 2.0f) { p.Position.x = (p.Position.x > 0 ? 2.0f : -2.0f); p.Velocity.x *= -0.5f; }
-            if (std::abs(p.Position.z) > 2.0f) { p.Position.z = (p.Position.z > 0 ? 2.0f : -2.0f); p.Velocity.z *= -0.5f; }
+            // Ground
+            if (p.Position.y < 0.0f) { p.Position.y = 0.0f; }
+            
+            // Sphere Collision
+            glm::vec3 sDir = p.Position - spherePos;
+            float sDist = glm::length(sDir);
+            if (sDist < sphereRadius) {
+                p.Position = spherePos + glm::normalize(sDir) * sphereRadius;
+            }
+
+            // Box Bounds (Space Arena)
+            if (std::abs(p.Position.x) > 5.0f) p.Position.x = (p.Position.x > 0 ? 5.0f : -5.0f);
+            if (std::abs(p.Position.z) > 5.0f) p.Position.z = (p.Position.z > 0 ? 5.0f : -5.0f);
         }
     }
 
@@ -145,36 +166,50 @@ void SoftBodySim::Update(float dt) {
         p.Velocity = (p.Position - p.OldPosition) / dt;
     }
 
-    UpdateNormals();
-}
-
-void SoftBodySim::UpdateNormals() {
-    // Basic CPU vertex update
+    // Update VBO
     std::vector<glm::vec3> positions;
     for (auto& p : m_Particles) positions.push_back(p.Position);
-    
     glBindBuffer(GL_ARRAY_BUFFER, m_VBO);
     glBufferSubData(GL_ARRAY_BUFFER, 0, positions.size() * sizeof(glm::vec3), positions.data());
-
-    // Normal calculation would go here for smooth shading, skipping for speed in this demo
 }
 
 void SoftBodySim::Render() {
     static auto shader = ResourceManager::Get().LoadShader("Standard3D", "assets/standard_3d_vertex.glsl", "assets/instance_3d_fragment.glsl");
     shader->use();
     Camera& cam = SimulationManager::Get().GetCamera();
-    shader->setMat4("view", cam.GetViewMatrix());
-    shader->setMat4("projection", glm::perspective(glm::radians(45.0f), 1280.0f / 720.0f, 0.1f, 100.0f));
-    shader->setVec3("viewPos", cam.GetPosition());
-    shader->setVec3("lightPos", glm::vec3(2, 5, 2));
-    shader->setVec3("uColor", glm::vec3(0.8f, 1.0f, 0.2f));
+    
+    float aspect = (float)Renderer::GetViewportWidth() / (float)Renderer::GetViewportHeight();
+    glm::mat4 projection = glm::perspective(glm::radians(45.0f), aspect, 0.1f, 1000.0f);
+    glm::mat4 view = cam.GetViewMatrix();
 
+    shader->setMat4("view", view);
+    shader->setMat4("projection", projection);
+    shader->setVec3("viewPos", cam.GetPosition());
+    shader->setVec3("lightPos", glm::vec3(5, 10, 5));
+
+    // 1. Draw Collision Sphere (The Attractor)
+    glm::mat4 sModel = glm::translate(glm::mat4(1.0f), m_LastSpherePos);
+    sModel = glm::scale(sModel, glm::vec3(1.6f)); // Radius 0.8 -> Scale 1.6
+    shader->setMat4("model", sModel);
+    shader->setVec3("uColor", glm::vec3(1.0f, 0.1f, 0.2f)); // Glowing Red
+    MeshLibrary::DrawCube();
+
+    // 2. Draw Floor
+    glm::mat4 fModel = glm::translate(glm::mat4(1.0f), glm::vec3(0, -0.05f, 0));
+    fModel = glm::scale(fModel, glm::vec3(10.0f, 0.1f, 10.0f));
+    shader->setMat4("model", fModel);
+    shader->setVec3("uColor", glm::vec3(0.05f, 0.1f, 0.15f));
+    MeshLibrary::DrawCube();
+
+    // 3. Draw Softbody
+    shader->setVec3("uColor", glm::vec3(0.0f, 1.0f, 0.8f)); // Cyan Jelly
+    shader->setMat4("model", glm::mat4(1.0f));
     glBindVertexArray(m_VAO);
     glDrawElements(GL_TRIANGLES, m_IndexCount, GL_UNSIGNED_INT, 0);
 }
 
 void SoftBodySim::OnRuntimeUI() {
-    ImGui::Text("PBD Solver Active");
+    ImGui::TextColored(ImVec4(0,1,1,1), "PBD MASTERPIECE ENGINE");
     ImGui::SliderFloat("Gravity", &m_Gravity, 0.0f, 20.0f);
 }
 

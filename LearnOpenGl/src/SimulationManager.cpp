@@ -14,3 +14,7 @@ void SimulationManager::SwitchTo(int index) {
     m_ActiveSim = m_Simulations[index].get();
     m_ActiveSim->Initialize();
 }
+
+void SimulationManager::RenderCurrentSimulation() {
+    if (m_ActiveSim) m_ActiveSim->Render();
+}

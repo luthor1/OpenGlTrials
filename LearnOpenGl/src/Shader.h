@@ -125,6 +125,11 @@ public:
         glUniformMatrix4fv(glGetUniformLocation(ID, name.c_str()), 1, GL_FALSE, &mat[0][0]);
     }
 
+    void setVec4Array(const std::string& name, const glm::vec4* values, int count) const
+    {
+        glUniform4fv(glGetUniformLocation(ID, name.c_str()), count, glm::value_ptr(values[0]));
+    }
+
 private:
     void checkCompileErrors(unsigned int shader, std::string type)
     {

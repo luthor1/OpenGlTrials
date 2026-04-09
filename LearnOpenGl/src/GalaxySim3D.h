@@ -8,8 +8,8 @@ public:
     GalaxySim3D();
     virtual ~GalaxySim3D();
 
-    std::string GetName() const override { return "Galaxy N-Body (3D AVX2)"; }
-    std::string GetDescription() const override { return "3D gravitational cluster simulator using high-performance SIMD."; }
+    std::string GetName() const override { return "Galaxy God-Level (500K Stars)"; }
+    std::string GetDescription() const override { return "Hyper-realistic galaxy with 500,000 glowing stars using Point Sprites and N-Body dynamics."; }
 
     void OnSetupUI() override;
     void Initialize() override;
@@ -20,7 +20,7 @@ public:
     void Shutdown() override;
 
 private:
-    int m_Count = 50000;
+    int m_Count = 500000;
     float m_G = 0.0001f;
     float m_Softening = 0.01f;
     float m_Scale = 0.1f;

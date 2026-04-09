@@ -39,93 +39,67 @@ void GalaxySim3D::Initialize() {
     m_ColorB = (float*)_aligned_malloc(count * sizeof(float), 32);
 
     std::default_random_engine gen;
-    std::uniform_real_distribution<float> distRadius(0.1f, 10.0f);
+    std::uniform_real_distribution<float> distRadius(0.1f, 12.0f);
     std::uniform_real_distribution<float> distAngle(0.0f, 2.0f * glm::pi<float>());
 
-    int numArms = 4;
-    float armTwist = 1.2f;
+    int numArms = 5;
+    float armTwist = 1.8f;
 
     for (int i = 0; i < m_Count; ++i) {
         float r = distRadius(gen);
         float angle = distAngle(gen);
-        
-        // Quantize angle to arms
         int armIndex = i % numArms;
         float armAngle = (armIndex * 2.0f * glm::pi<float>()) / numArms;
         float twist = r * armTwist;
-        
-        // Spiral arm core
         float spiralAngle = armAngle + twist;
+        float spread = 1.0f / (r + 0.5f);
         
-        // Add spread/dispersion
-        float spread = 0.8f / (r + 0.5f);
-        float offsetX = (float)((rand() % 100) - 50) * 0.01f * spread;
-        float offsetZ = (float)((rand() % 100) - 50) * 0.01f * spread;
-        
-        m_PosX[i] = r * cos(spiralAngle) + offsetX;
-        m_PosZ[i] = r * sin(spiralAngle) + offsetZ;
-        m_PosY[i] = (float)((rand() % 100) - 50) * 0.001f * (12.0f - r);
+        m_PosX[i] = r * cos(spiralAngle) + (float)((rand() % 100) - 50) * 0.01f * spread;
+        m_PosZ[i] = r * sin(spiralAngle) + (float)((rand() % 100) - 50) * 0.01f * spread;
+        m_PosY[i] = (float)((rand() % 100) - 50) * 0.001f * (15.0f - r);
 
-        // Orbital velocity
-        float v = sqrt(2.5f / (r + 0.2f));
+        float v = sqrt(2.8f / (r + 0.3f));
         m_VelX[i] = -sin(spiralAngle) * v;
         m_VelZ[i] = cos(spiralAngle) * v;
         m_VelY[i] = 0.0f;
 
-        // Masterpiece Colors
-        if (r < 1.5f) {
-            // Hot Core: Blue-White
-            m_ColorR[i] = 0.8f + (rand() % 20) * 0.01f;
-            m_ColorG[i] = 0.9f;
-            m_ColorB[i] = 1.0f;
+        if (r < 1.0f) {
+            m_ColorR[i] = 1.0f; m_ColorG[i] = 0.95f; m_ColorB[i] = 0.8f;
         } else {
-            // Outer Arms: Pink/Blue/Orange mix
             float mix = (float)(armIndex) / numArms;
-            m_ColorR[i] = 0.4f + mix * 0.4f;
-            m_ColorG[i] = 0.3f + (1.0f-mix) * 0.2f;
-            m_ColorB[i] = 0.7f + mix * 0.3f;
+            m_ColorR[i] = 0.3f + mix * 0.5f;
+            m_ColorG[i] = 0.2f + (1.0f-mix) * 0.3f;
+            m_ColorB[i] = 0.6f + mix * 0.4f;
         }
     }
 
-    std::vector<Vertex> meshVertices;
-    std::vector<unsigned int> meshIndices;
-    MeshLibrary::GetSphere(meshVertices, meshIndices, 4); // Low-poly spheres for 100k stars
-    m_IndexCount = (int)meshIndices.size();
-
     glGenVertexArrays(1, &m_VAO);
-    glGenBuffers(1, &m_VBO);
-    glGenBuffers(1, &m_IBO);
     glGenBuffers(1, &m_InstPosVBO);
     glGenBuffers(1, &m_InstColorVBO);
 
     glBindVertexArray(m_VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, m_VBO);
-    glBufferData(GL_ARRAY_BUFFER, meshVertices.size() * sizeof(Vertex), meshVertices.data(), GL_STATIC_DRAW);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_IBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, meshIndices.size() * sizeof(unsigned int), meshIndices.data(), GL_STATIC_DRAW);
-
     glBindBuffer(GL_ARRAY_BUFFER, m_InstPosVBO);
     glBufferData(GL_ARRAY_BUFFER, m_Count * 3 * sizeof(float), NULL, GL_STREAM_DRAW);
-    glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-    glVertexAttribDivisor(2, 1);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 
     glBindBuffer(GL_ARRAY_BUFFER, m_InstColorVBO);
     glBufferData(GL_ARRAY_BUFFER, m_Count * 3 * sizeof(float), NULL, GL_STREAM_DRAW);
-    glEnableVertexAttribArray(3);
-    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-    glVertexAttribDivisor(3, 1);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 }
 
 void GalaxySim3D::Update(float dt) {
     if (dt > 0.02f) dt = 0.02f;
     UpdateSIMD(dt);
 
-    std::vector<float> posData(m_Count * 3);
-    std::vector<float> colorData(m_Count * 3);
+    static std::vector<float> posData;
+    static std::vector<float> colorData;
+    if (posData.size() != m_Count * 3) {
+        posData.resize(m_Count * 3);
+        colorData.resize(m_Count * 3);
+    }
+
     for (int i = 0; i < m_Count; ++i) {
         posData[i * 3] = m_PosX[i];
         posData[i * 3 + 1] = m_PosY[i];
@@ -143,8 +117,8 @@ void GalaxySim3D::Update(float dt) {
 void GalaxySim3D::UpdateSIMD(float dt) {
     __m256 dtV = _mm256_set1_ps(dt);
     __m256 gV = _mm256_set1_ps(m_G);
-    __m256 softeningV = _mm256_set1_ps(m_Softening + 0.1f);
-    __m256 centralMassV = _mm256_set1_ps(500.0f);
+    __m256 softeningV = _mm256_set1_ps(m_Softening + 0.05f);
+    __m256 centralMassV = _mm256_set1_ps(1200.0f); // Ultra Massive Core
 
     for (int i = 0; i < m_Count; i += 8) {
         __m256 px = _mm256_load_ps(&m_PosX[i]);
@@ -155,8 +129,7 @@ void GalaxySim3D::UpdateSIMD(float dt) {
         __m256 vz = _mm256_load_ps(&m_VelZ[i]);
 
         __m256 d2 = _mm256_add_ps(_mm256_mul_ps(px, px), _mm256_add_ps(_mm256_mul_ps(py, py), _mm256_mul_ps(pz, pz)));
-        d2 = _mm256_add_ps(d2, softeningV);
-        __m256 invD = _mm256_rsqrt_ps(d2);
+        __m256 invD = _mm256_rsqrt_ps(_mm256_add_ps(d2, softeningV));
         __m256 invD3 = _mm256_mul_ps(invD, _mm256_mul_ps(invD, invD));
         __m256 f = _mm256_mul_ps(_mm256_mul_ps(gV, centralMassV), invD3);
 
@@ -171,10 +144,30 @@ void GalaxySim3D::UpdateSIMD(float dt) {
         _mm256_store_ps(&m_PosX[i], px); _mm256_store_ps(&m_PosY[i], py); _mm256_store_ps(&m_PosZ[i], pz);
         _mm256_store_ps(&m_VelX[i], vx); _mm256_store_ps(&m_VelY[i], vy); _mm256_store_ps(&m_VelZ[i], vz);
     }
+
+    // Dynamic Star Re-spawning & Coloring
+    for (int i = 0; i < m_Count; ++i) {
+        float r2 = m_PosX[i]*m_PosX[i] + m_PosZ[i]*m_PosZ[i];
+        if (r2 < 0.04f) { // Swallowed by Black Hole
+            float radius = 9.0f + (rand() % 10) * 0.1f;
+            float angle = (rand() % 628) * 0.01f;
+            m_PosX[i] = radius * cos(angle);
+            m_PosZ[i] = radius * sin(angle);
+            m_PosY[i] = (rand() % 100 - 50) * 0.005f;
+            m_VelX[i] = -sin(angle) * 1.5f;
+            m_VelZ[i] = cos(angle) * 1.5f;
+            // Flare color when re-spawning
+            m_ColorR[i] = 1.0f; m_ColorG[i] = 0.8f; m_ColorB[i] = 0.5f;
+        } else {
+            // Velocity-based heating (blue shift for fast stars)
+            float vel = sqrt(m_VelX[i]*m_VelX[i] + m_VelZ[i]*m_VelZ[i]);
+            m_ColorG[i] = 0.4f + std::min(vel * 0.2f, 0.6f);
+        }
+    }
 }
 
 void GalaxySim3D::Render() {
-    static auto shader = ResourceManager::Get().LoadShader("StarShader", "assets/star_vertex.glsl", "assets/star_fragment.glsl");
+    static auto shader = ResourceManager::Get().LoadShader("StarSprite", "assets/star_sprite_vertex.glsl", "assets/star_sprite_fragment.glsl");
     shader->use();
     Camera& cam = SimulationManager::Get().GetCamera();
     
@@ -185,14 +178,22 @@ void GalaxySim3D::Render() {
     shader->setMat4("projection", projection);
     shader->setFloat("scale", m_Scale);
 
+    glEnable(GL_PROGRAM_POINT_SIZE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE); // Additive blending for glows
+    glDepthMask(GL_FALSE); // Stars shouldn't block each other's glow
+    
     glBindVertexArray(m_VAO);
-    glDrawElementsInstanced(GL_TRIANGLES, m_IndexCount, GL_UNSIGNED_INT, 0, m_Count);
+    glDrawArrays(GL_POINTS, 0, m_Count);
+
+    glDepthMask(GL_TRUE);
+    glDisable(GL_BLEND);
 }
 
 void GalaxySim3D::OnRuntimeUI() {
-    ImGui::Text("Active Stars: %d", m_Count);
+    ImGui::TextColored(ImVec4(1,1,0,1), "GOD-LEVEL ENGINE (500K)");
     ImGui::SliderFloat("Gravity", &m_G, 0.0f, 0.005f);
-    ImGui::SliderFloat("Star Scale", &m_Scale, 0.001f, 0.05f);
+    ImGui::SliderFloat("Star Glow", &m_Scale, 0.001f, 0.2f);
 }
 
 void GalaxySim3D::Restart() { Shutdown(); Initialize(); }
@@ -204,4 +205,6 @@ void GalaxySim3D::Shutdown() {
         m_PosX = nullptr;
     }
     glDeleteVertexArrays(1, &m_VAO);
+    glDeleteBuffers(1, &m_InstPosVBO);
+    glDeleteBuffers(1, &m_InstColorVBO);
 }

@@ -47,5 +47,6 @@ private:
     void CreateSoftBody();
     void AddConstraint(int i, int j);
     void SolveConstraints();
-    void UpdateNormals();
+    
+    glm::vec3 m_LastSpherePos;
 };

@@ -145,8 +145,9 @@ void EditorLayer::OnImGuiRender() {
             ImGui::Image((void*)(intptr_t)Renderer::GetViewportTexture(), viewportSize, ImVec2(0, 1), ImVec2(1, 0));
         }
 
-        // Focused Camera Interaction (Fly-Cam)
-        if (ImGui::IsWindowFocused() && ImGui::IsWindowHovered()) {
+        // Unlocked Camera Interaction (Fly-Cam)
+        // No longer strictly requires window focus, just hovering or active mouse usage
+        if (ImGui::IsWindowHovered() || ImGui::IsWindowFocused()) {
             Camera& cam = SimulationManager::Get().GetCamera();
             float dt = io.DeltaTime;
 
@@ -155,6 +156,7 @@ void EditorLayer::OnImGuiRender() {
             if (ImGui::IsKeyDown(ImGuiKey_A)) cam.ProcessKeyboard(Camera::LEFT, dt);
             if (ImGui::IsKeyDown(ImGuiKey_D)) cam.ProcessKeyboard(Camera::RIGHT, dt);
             if (ImGui::IsKeyDown(ImGuiKey_Space)) cam.ProcessKeyboard(Camera::UP, dt);
+            if (ImGui::IsKeyDown(ImGuiKey_E)) cam.ProcessKeyboard(Camera::UP, dt); // 'E' also for UP
             if (ImGui::IsKeyDown(ImGuiKey_Q)) cam.ProcessKeyboard(Camera::DOWN, dt);
 
             if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {

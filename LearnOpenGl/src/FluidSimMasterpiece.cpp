@@ -100,6 +100,7 @@ void FluidSimMasterpiece::ComputeForces() {
     for (int i = 0; i < (int)m_Particles.size(); ++i) grid.Insert(i, m_Particles[i].Position);
 
     const float h = m_SmoothingRadius;
+    const float h9 = powf(h, 9.0f);
     const float SPIKY_GRAD = -45.0f / (glm::pi<float>() * powf(h, 6.0f));
     const float VISC_LAP = 45.0f / (glm::pi<float>() * powf(h, 6.0f));
 
@@ -113,18 +114,18 @@ void FluidSimMasterpiece::ComputeForces() {
             if (i == nj) continue;
             glm::vec3 diff = m_Particles[i].Position - m_Particles[nj].Position;
             float r = glm::length(diff);
-            if (r < h && r > 0.0001f) {
-                // Pressure
+            if (r < h && r > 0.001f) {
+                // Pressure: Standard SPH Gradient
                 fPressure += -glm::normalize(diff) * m_Particles[i].Density * 
                              (m_Particles[i].Pressure + m_Particles[nj].Pressure) / (2.0f * m_Particles[nj].Density) * 
                              SPIKY_GRAD * powf(h - r, 2.0f);
                 
-                // Viscosity
+                // Viscosity: Standard SPH Laplacian
                 fViscosity += m_Viscosity * (m_Particles[nj].Velocity - m_Particles[i].Velocity) / m_Particles[nj].Density * 
                               VISC_LAP * (h - r);
 
-                // Surface Tension (Simplified)
-                fSurface += -m_SurfaceTension * diff * (h - r);
+                // Surface Tension: Masterpiece Cohesion Force
+                fSurface += -m_SurfaceTension * 0.1f * diff * (h - r);
             }
         }
         m_Particles[i].Force = fPressure + fViscosity + fSurface + glm::vec3(0, -m_Gravity * m_Particles[i].Density, 0);
@@ -132,20 +133,25 @@ void FluidSimMasterpiece::ComputeForces() {
 }
 
 void FluidSimMasterpiece::Integrate(float dt) {
+    const float damping = -0.5f;
+    const float bounds = 2.0f;
+    const float boundsY = 4.0f;
+
     for (auto& p : m_Particles) {
         p.Velocity += dt * p.Force / p.Density;
         p.Position += dt * p.Velocity;
 
-        // Boundaries
-        if (p.Position.y < 0.0f) { p.Position.y = 0.0f; p.Velocity.y *= -0.5f; }
-        if (p.Position.x < -2.0f) { p.Position.x = -2.0f; p.Velocity.x *= -0.5f; }
-        if (p.Position.x > 2.0f) { p.Position.x = 2.0f; p.Velocity.x *= -0.5f; }
-        if (p.Position.z < -2.0f) { p.Position.z = -2.0f; p.Velocity.z *= -0.5f; }
-        if (p.Position.z > 2.0f) { p.Position.z = 2.0f; p.Velocity.z *= -0.5f; }
+        // Perfect Tank Boundaries with Damping
+        if (p.Position.y < 0.0f) { p.Position.y = 0.0f; p.Velocity.y *= damping; }
+        if (p.Position.y > boundsY) { p.Position.y = boundsY; p.Velocity.y *= damping; }
+        if (p.Position.x < -bounds) { p.Position.x = -bounds; p.Velocity.x *= damping; }
+        if (p.Position.x > bounds) { p.Position.x = bounds; p.Velocity.x *= damping; }
+        if (p.Position.z < -bounds) { p.Position.z = -bounds; p.Velocity.z *= damping; }
+        if (p.Position.z > bounds) { p.Position.z = bounds; p.Velocity.z *= damping; }
 
-        // Color based on density
-        float dRatio = (p.Density - m_RestDensity) / 500.0f;
-        p.Color = glm::mix(glm::vec3(0.1f, 0.4f, 0.9f), glm::vec3(0.9f, 0.9f, 1.0f), glm::clamp(dRatio, 0.0f, 1.0f));
+        // Masterpiece Shading: Density-based color
+        float dRatio = (p.Density - m_RestDensity) / 1000.0f;
+        p.Color = glm::mix(glm::vec3(0.0f, 0.4f, 1.0f), glm::vec3(0.5f, 1.0f, 1.0f), glm::clamp(dRatio, 0.0f, 1.0f));
     }
 }
 
