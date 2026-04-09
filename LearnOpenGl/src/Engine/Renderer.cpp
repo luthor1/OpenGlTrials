@@ -64,11 +64,19 @@ void Renderer::RenderToViewport() {
     // God-Level: Pass Matrices for Screenspace calculations (Lensing)
     Camera& cam = SimulationManager::Get().GetCamera();
     float aspect = (float)Renderer::GetViewportWidth() / (float)Renderer::GetViewportHeight();
-    glm::mat4 projection = glm::perspective(glm::radians(45.0f), aspect, 0.1f, 1000.0f);
+    
+    // Increased zFar to avoid clipping high-scale sims in post-process pass
+    glm::mat4 projection = glm::perspective(glm::radians(45.0f), aspect, 0.1f, 20000.0f);
     
     s_ViewportShader->setMat4("view", cam.GetViewMatrix());
     s_ViewportShader->setMat4("projection", projection);
-    s_ViewportShader->setVec3("blackHolePos", s_BlackHolePos); 
+
+    // Disable legacy lensing if using the modern relativistic raytracer
+    glm::vec3 finalBHPpos = s_BlackHolePos;
+    if (SimulationManager::Get().GetActive() && SimulationManager::Get().GetActive()->GetName().find("Relativistic") != std::string::npos) {
+        finalBHPpos = glm::vec3(0, -1e9, 0); // Move away from screen
+    }
+    s_ViewportShader->setVec3("blackHolePos", finalBHPpos); 
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, s_IntermediateFB->GetTexture());

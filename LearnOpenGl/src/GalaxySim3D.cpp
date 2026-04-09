@@ -38,6 +38,13 @@ void GalaxySim3D::Initialize() {
     m_ColorG = (float*)_aligned_malloc(count * sizeof(float), 32);
     m_ColorB = (float*)_aligned_malloc(count * sizeof(float), 32);
 
+    // Reset Camera for Galaxy scale
+    Camera& cam = SimulationManager::Get().GetCamera();
+    cam.Position = glm::vec3(0.0f, 50.0f, 150.0f);
+    cam.MovementSpeed = 10.0f;
+    cam.Yaw = -90.0f;
+    cam.Pitch = -25.0f;
+
     std::default_random_engine gen;
     std::uniform_real_distribution<float> distRadius(0.1f, 12.0f);
     std::uniform_real_distribution<float> distAngle(0.0f, 2.0f * glm::pi<float>());

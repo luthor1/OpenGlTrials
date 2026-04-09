@@ -30,6 +30,13 @@ void FluidSimMasterpiece::Initialize() {
         m_Particles[i].Color = glm::vec3(0.1f, 0.4f, 0.9f);
     }
 
+    // Reset Camera for Fluid scale
+    Camera& cam = SimulationManager::Get().GetCamera();
+    cam.Position = glm::vec3(0.0f, 5.0f, 20.0f);
+    cam.MovementSpeed = 5.0f;
+    cam.Yaw = -90.0f;
+    cam.Pitch = -15.0f;
+
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indices;
     MeshLibrary::GetSphere(vertices, indices, 8);

@@ -17,6 +17,13 @@ void SpaceTimeSim::Initialize() {
     m_G = 0.5f;
     InitializeSolarSystem();
 
+    // Reset Camera for Solar System scale
+    Camera& cam = SimulationManager::Get().GetCamera();
+    cam.Position = glm::vec3(0.0f, 10.0f, 50.0f);
+    cam.MovementSpeed = 5.0f;
+    cam.Yaw = -90.0f;
+    cam.Pitch = -10.0f;
+
     // 2. Create Meshes (Larger for solar system)
     CreateGrid(100, 150.0f);
     CreatePlanetMesh();
