@@ -138,6 +138,15 @@
     <ClCompile Include="src\imgui\imgui_impl_glfw.cpp" />
     <ClCompile Include="src\imgui\imgui_impl_opengl3.cpp" />
     <ClCompile Include="src\ParticleSystem.cpp" />
+    <ClCompile Include="src\SimulationManager.cpp" />
+    <ClCompile Include="src\GravitySim.cpp" />
+    <ClCompile Include="src\FallSim.cpp" />
+    <ClCompile Include="src\MeshLibrary.cpp" />
+    <ClCompile Include="src\GalaxySim3D.cpp" />
+    <ClCompile Include="src\FluidSimSPH.cpp" />
+    <ClCompile Include="src\Framebuffer.cpp" />
+    <ClCompile Include="src\SoftBodySim.cpp" />
+    <ClCompile Include="src\Octree.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\imgui\imconfig.h" />
@@ -150,6 +159,19 @@
     <ClInclude Include="src\imgui\imstb_textedit.h" />
     <ClInclude Include="src\imgui\imstb_truetype.h" />
     <ClInclude Include="src\ParticleSystem.h" />
+    <ClInclude Include="src\ISimulation.h" />
+    <ClInclude Include="src\SimulationManager.h" />
+    <ClInclude Include="src\PhysicsUtility.h" />
+    <ClInclude Include="src\GravitySim.h" />
+    <ClInclude Include="src\FallSim.h" />
+    <ClInclude Include="src\MeshLibrary.h" />
+    <ClInclude Include="src\Camera.h" />
+    <ClInclude Include="src\GalaxySim3D.h" />
+    <ClInclude Include="src\FluidSimSPH.h" />
+    <ClInclude Include="src\Framebuffer.h" />
+    <ClInclude Include="src\SoftBodySim.h" />
+    <ClInclude Include="src\Octree.h" />
+    <ClInclude Include="src\Picker.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="assets\fragment_core.glsl" />
