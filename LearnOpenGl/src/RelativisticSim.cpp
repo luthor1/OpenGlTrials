@@ -102,7 +102,7 @@ void RelativisticSim::Update(float dt) {
             float v_si = (float)sqrt(G * M_SagA / (double(r) * 1e9)) * 0.4f; 
             planet.vel = glm::vec3(-sin(angle) * v_si / 1e9f, 0, cos(angle) * v_si / 1e9f);
             planet.mass = 5.972e24f * 100000.0f; 
-            planet.radius = 40.0f;
+            planet.radius = 20.0f; // Half size (40 -> 20)
             planet.color = glm::vec3(0.34f, 0.62f, 0.98f);
             planet.name = "Celestial Impact Body";
             m_Objects.push_back(planet);
@@ -127,12 +127,12 @@ void RelativisticSim::Update(float dt) {
 void RelativisticSim::UpdatePhysics(float dt) {
     const double scale = 1e9;
     double totalTimeStep = (double)dt * m_TimeScale;
-    const int subSteps = 20;
+    const int subSteps = 40; 
     double subDt = totalTimeStep / subSteps;
 
     auto get_accel_si = [&](const glm::dvec3& pos_scaled) -> glm::dvec3 {
         double r_scaled = glm::length(pos_scaled);
-        if (r_scaled < m_Rs * 0.1) return glm::dvec3(0.0); 
+        if (r_scaled < m_Rs * 0.05) return glm::dvec3(0.0); 
         double r_si = r_scaled * scale;
         glm::dvec3 dir = -glm::normalize(pos_scaled);
         double accel_si = (G * M_SagA) / (r_si * r_si);
@@ -140,10 +140,13 @@ void RelativisticSim::UpdatePhysics(float dt) {
     };
 
     for (auto it = m_Objects.begin(); it != m_Objects.end(); ) {
-        bool absorbed = false;
+        bool swallowed = false;
         for (int step = 0; step < subSteps; ++step) {
             glm::dvec3 p0 = glm::dvec3(it->pos);
             glm::dvec3 v0 = glm::dvec3(it->vel) * scale;
+
+            // Immediate early-exit if already inside the kill zone (Increased for aggressive swallow)
+            if (glm::length(p0) < m_Rs * 2.0) { swallowed = true; break; }
 
             // RK4 Step
             glm::dvec3 k1_p = v0;
@@ -158,25 +161,29 @@ void RelativisticSim::UpdatePhysics(float dt) {
             glm::dvec3 p_final = p0 + (subDt / (6.0 * scale)) * (k1_p + 2.0*k2_p + 2.0*k3_p + k4_p);
             glm::dvec3 v_final = v0 + (subDt / 6.0) * (k1_v + 2.0*k2_v + 2.0*k3_v + k4_v);
 
-            // CCD Intersection
+            // CCD Intersection with a safe spillover radius (Stronger swallow zone)
             glm::dvec3 L = p_final - p0;
             double a = glm::dot(L, L);
             double b = 2.0 * glm::dot(p0, L);
-            double r_tol = m_Rs * 1.01;
-            double c = glm::dot(p0, p0) - (r_tol * r_tol);
+            double r_swallow = m_Rs * 2.0; 
+            double c = glm::dot(p0, p0) - (r_swallow * r_swallow);
             double disc = b*b - 4.0*a*c;
             if (disc >= 0) {
                 double t1 = (-b - sqrt(disc)) / (2.0 * a);
-                if (t1 >= 0.0 && t1 <= 1.0) { absorbed = true; break; }
+                if (t1 >= 0.0 && t1 <= 1.0) { swallowed = true; break; }
             }
-            if (glm::length(p_final) < r_tol) { absorbed = true; break; }
+            if (glm::length(p_final) < r_swallow) { swallowed = true; break; }
 
             it->pos = glm::vec3(p_final);
             it->vel = glm::vec3(v_final / scale);
         }
 
-        if (absorbed) it = m_Objects.erase(it);
-        else ++it;
+        if (swallowed) {
+            std::cout << "[PHYSICS] Body '" << it->name << "' swallowed by Black Hole." << std::endl;
+            it = m_Objects.erase(it);
+        } else {
+            ++it;
+        }
     }
 }
 
@@ -216,7 +223,7 @@ void RelativisticSim::SyncUBOs() {
     glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(DiskUBOData), &dData);
 
     ObjectsUBOData oData;
-    oData.numObjects = std::min((int)m_Objects.size(), 16);
+    oData.numObjects = std::min<int>((int)m_Objects.size(), 16);
     for (int i = 0; i < oData.numObjects; ++i) {
         oData.posRadius[i] = glm::vec4(m_Objects[i].pos, m_Objects[i].radius);
         oData.colorMass[i] = glm::vec4(m_Objects[i].color, m_Objects[i].mass);
@@ -241,42 +248,10 @@ void RelativisticSim::Render() {
     }
     glDepthMask(GL_TRUE);
 
-    // 2. 3D Overlay (Planets & Grid)
+    // 2. 3D Overlay (Grid)
     Camera& cam = SimulationManager::Get().GetCamera();
     glm::mat4 projection = glm::perspective(glm::radians(60.0f), (float)vw/vh, 0.1f, 20000.0f);
     glm::mat4 view = cam.GetViewMatrix();
-
-    if (m_PlanetShader) {
-        m_PlanetShader->use();
-        m_PlanetShader->setMat4("view", view);
-        m_PlanetShader->setMat4("projection", projection);
-        glBindVertexArray(m_PlanetVAO);
-        for (const auto& obj : m_Objects) {
-            float dist = glm::length(obj.pos);
-            // Fix: glm::clamp template ambiguity
-            float S = glm::clamp((float)pow(m_Rs / std::max((double)dist, 1.0), 3.0), 0.0f, 40.0f) * 15.0f;
-            
-            glm::mat4 model = glm::translate(glm::mat4(1.0f), obj.pos);
-            glm::vec3 dir = -glm::normalize(obj.pos);
-            glm::vec3 worldUp = (abs(dir.y) > 0.9f) ? glm::vec3(1, 0, 0) : glm::vec3(0, 1, 0);
-            glm::vec3 r = glm::normalize(glm::cross(worldUp, dir));
-            glm::vec3 u = glm::cross(dir, r);
-            
-            glm::mat4 rot(1.0f);
-            rot[0] = glm::vec4(r, 0); rot[1] = glm::vec4(u, 0); rot[2] = glm::vec4(dir, 0);
-            model *= rot;
-            
-            float stretch = 1.0f + S;
-            float squeeze = 1.0f / sqrt(stretch);
-            model = glm::scale(model, glm::vec3(squeeze * obj.radius, squeeze * obj.radius, stretch * obj.radius));
-            
-            m_PlanetShader->setMat4("model", model);
-            m_PlanetShader->setVec3("uColor", obj.color);
-            m_PlanetShader->setVec3("uVelocity", obj.vel);
-            m_PlanetShader->setVec3("uHolePos", glm::vec3(0.0f));
-            glDrawElements(GL_TRIANGLES, m_PlanetIndexCount, GL_UNSIGNED_INT, 0);
-        }
-    }
 
     if (m_ShowGrid && m_GridShader) {
         m_GridShader->use();
@@ -355,11 +330,11 @@ void RelativisticSim::GenerateGrid() {
         float r = (float)m_Rs + (maxRadius - (float)m_Rs) * pow(t, 2.0f);
         
         // CORRECT GRAVITY WELL: Deep at center, Flat at edges
-        float y = (float)(depthScale * (sqrt(std::max(0.0f, r - (float)m_Rs)) - maxWarp));
+        float y = (float)(depthScale * (sqrt(std::max<float>(0.0f, r - (float)m_Rs)) - maxWarp));
 
         for (int s_idx = 0; s_idx < segments; ++s_idx) {
             float phi = (float)s_idx / segments * 2.0f * 3.14159f;
-            vertices.push_back(glm::vec3(cos(phi) * r, y, sin(phi) * r));
+            vertices.push_back(glm::vec3(cos(phi) * r, y, sin(phi) * r));   
             
             int curr = r_idx * segments + s_idx;
             int next = r_idx * segments + (s_idx + 1) % segments;

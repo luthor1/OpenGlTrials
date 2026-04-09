@@ -109,6 +109,21 @@ void main() {
             }
         }
 
+        // CELESTIAL OBJECTS (PLANETS) INTERACTION
+        for (int j = 0; j < objs.numObjects; ++j) {
+            float objRadius = objs.posRadius[j].w;
+            vec3 objPos = objs.posRadius[j].xyz;
+            float distToObj = length(p - objPos);
+            
+            if (distToObj < objRadius) {
+                vec3 normal = normalize(p - objPos);
+                vec3 lightDir = normalize(vec3(1.0, 1.0, 0.5));
+                float diff = max(dot(normal, lightDir), 0.2); // Simple diffuse + ambient
+                FragColor = vec4(objs.colorMass[j].rgb * diff, 1.0);
+                return; // Immediate exit for planet hit
+            }
+        }
+
         vec3 accel = get_accel(p, v);
         v += accel * stepSize;
         v = normalize(v); 
