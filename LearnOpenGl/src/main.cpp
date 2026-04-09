@@ -1,20 +1,17 @@
 #include <iostream>
+#include <vector>
+#include <sstream>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
 #include "Shader.h"
-
-#include <fstream>
-#include <sstream>
-#include <string>
-
 #include "imgui/imgui.h"
 #include "imgui/imgui_impl_glfw.h"
 #include "imgui/imgui_impl_opengl3.h"
+#include "ParticleSystem.h"
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow* window);
@@ -23,129 +20,140 @@ void updateFPSCounter(GLFWwindow* window);
 int main()
 {
 	glfwInit();
-
-	// Set OpenGL version to 3.3
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-	GLFWwindow* window = glfwCreateWindow(800, 600, "LearnOpenGL - Enhanced", NULL, NULL);
-
-	if (window == NULL)
-	{
-		std::cout << "Failed to create GLFW window" << std::endl;
+	GLFWwindow* window = glfwCreateWindow(1280, 720, "SIMD Particle Simulator", NULL, NULL);
+	if (window == NULL) {
 		glfwTerminate();
 		return -1;
 	}
-
 	glfwMakeContextCurrent(window);
 
-	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
-	{
-		std::cout << "Failed to initialize GLAD" << std::endl;
-		return -1;
-	}
+	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) return -1;
 
-	glViewport(0, 0, 800, 600);
+	glViewport(0, 0, 1280, 720);
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
-	// Setup Dear ImGui context
+	// Setup Dear ImGui
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
-	ImGuiIO& io = ImGui::GetIO(); (void)io;
-	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-	io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-
-	// Setup Dear ImGui style
-	ImGui::StyleColorsDark();
-
-	// Setup Platform/Renderer backends
+	ImGuiIO& io = ImGui::GetIO();
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
 	ImGui_ImplOpenGL3_Init("#version 330");
 
-	// shader class initialization
-	Shader ourShader("assets/vertex_core.glsl", "assets/fragment_core.glsl");
+	Shader particleShader("assets/particle_vertex.glsl", "assets/particle_fragment.glsl");
 
-	// vertex array with colors (x, y, z, r, g, b)
-	float vertices[] = {
-		// positions         // colors
-		 0.5f, -0.5f, 0.0f,  1.0f, 0.0f, 0.0f,  // bottom right
-		-0.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,  // bottom left
-		 0.0f,  0.5f, 0.0f,  0.0f, 0.0f, 1.0f   // top 
+	// Particle System Init
+	const int MAX_PARTICLES = 100000;
+	ParticleSystem ps(MAX_PARTICLES);
+
+	// Geometry for a single particle (a small quad)
+	float particleQuad[] = {
+		-0.005f,  0.005f,
+		-0.005f, -0.005f,
+		 0.005f,  0.005f,
+		 0.005f, -0.005f,
 	};
 
-	unsigned int VAO, VBO;
+	unsigned int VAO, VBO, instanceVBO;
 	glGenVertexArrays(1, &VAO);
 	glGenBuffers(1, &VBO);
+	glGenBuffers(1, &instanceVBO);
 
 	glBindVertexArray(VAO);
-
+	
+	// Base geometry
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-	// position attribute
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(particleQuad), particleQuad, GL_STATIC_DRAW);
 	glEnableVertexAttribArray(0);
-	// color attribute
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+
+	// Instance data (Offsets)
+	glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+	// We will update this every frame with posX and posY interleaved or just use two buffers
+	// For simplicity, let's interleave them in a temporary buffer or use two separate attributes
+	// Actually, let's use two separate attributes for posX and posY to avoid interleaving on CPU
+	
+	// Pre-allocate buffer for instance data (2 floats per particle: X and Y)
+	glBufferData(GL_ARRAY_BUFFER, MAX_PARTICLES * 2 * sizeof(float), NULL, GL_STREAM_DRAW);
 	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+	glVertexAttribDivisor(1, 1); // This tells OpenGL this is an instanced attribute
+
+	float lastFrame = 0.0f;
+	std::vector<float> interleavedPos(MAX_PARTICLES * 2);
 
 	while (!glfwWindowShouldClose(window))
 	{
+		float currentFrame = (float)glfwGetTime();
+		float deltaTime = currentFrame - lastFrame;
+		lastFrame = currentFrame;
+
+		glfwPollEvents();
 		processInput(window);
 
-		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+		// Update Particles
+		ps.Update(deltaTime);
+
+		// Prepare data for GPU
+		const float* px = ps.GetPositionsX();
+		const float* py = ps.GetPositionsY();
+		for (int i = 0; i < MAX_PARTICLES; ++i) {
+			interleavedPos[i * 2] = px[i];
+			interleavedPos[i * 2 + 1] = py[i];
+		}
+
+		// Update instance buffer
+		glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, MAX_PARTICLES * 2 * sizeof(float), interleavedPos.data());
+
+		glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
 
-		// Start the Dear ImGui frame
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
 
-		// Create a simple ImGui window
+		// ImGui UI
 		{
-			static float f = 0.0f;
-			static int counter = 0;
-
-			ImGui::Begin("ImGui Controls");                          
-
-			ImGui::Text("Hello, World!");               
-			ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            
-
-			if (ImGui::Button("Button"))                            
-				counter++;
-			ImGui::SameLine();
-			ImGui::Text("counter = %d", counter);
-
-			ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+			ImGui::Begin("Particle Simulator Settings");
+			ImGui::Text("Particle Count: %d", MAX_PARTICLES);
+			ImGui::Separator();
+			ImGui::SliderFloat("Gravity", &ps.Gravity, 0.0f, 20.0f);
+			ImGui::SliderFloat("Friction", &ps.Friction, 0.9f, 1.0f);
+			ImGui::SliderFloat("Bounciness", &ps.Bounciness, 0.0f, 1.0f);
+			ImGui::SliderFloat("Particle Size", &ps.ParticleSize, 0.1f, 10.0f);
+			ImGui::Checkbox("Use SIMD (AVX2)", &ps.UseSIMD);
+			if (ImGui::Button("Reset Simulation")) ps.Reset();
+			ImGui::Separator();
+			ImGui::Text("Performance: %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
 			ImGui::End();
 		}
 
-		ourShader.use();
-
-		// Create transformation matrix
-		glm::mat4 trans = glm::mat4(1.0f); // identity matrix
-		trans = glm::rotate(trans, (float)glfwGetTime(), glm::vec3(0.0f, 0.0f, 1.0f)); // rotate around Z axis
-		// trans = glm::scale(trans, glm::vec3(0.5, 0.5, 0.5)); // optional: scale it down
-
-		ourShader.setMat4("transform", trans);
+		// Draw Particles
+		particleShader.use();
+		particleShader.setFloat("particleSize", ps.ParticleSize);
+		
+		// Projection matrix (simple 2D)
+		glm::mat4 projection = glm::ortho(-1.0f, 1.0f, -1.0f, 1.0f);
+		particleShader.setMat4("projection", projection);
 
 		glBindVertexArray(VAO);
-		glDrawArrays(GL_TRIANGLES, 0, 3);
+		glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, MAX_PARTICLES);
 
-		// Rendering ImGui
 		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
 		glfwSwapBuffers(window);
-		glfwPollEvents();
 		updateFPSCounter(window);
 	}
 
 	glDeleteVertexArrays(1, &VAO);
 	glDeleteBuffers(1, &VBO);
+	glDeleteBuffers(1, &instanceVBO);
 
-	// Cleanup ImGui
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
 	ImGui::DestroyContext();
