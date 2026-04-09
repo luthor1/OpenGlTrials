@@ -70,14 +70,13 @@ void main() {
     
     vec3 diskColor = vec3(0.0);
     bool hitBH = false;
-    float totalDist = 0.0;
-    int maxSteps = 400; // Consistent high quality
+    int maxSteps = 400;
+    float min_r_norm = 100.0; // Track closest approach for the photon ring
 
     for (int i = 0; i < maxSteps; ++i) {
         float r = length(p);
+        min_r_norm = min(min_r_norm, r / Rs);
         
-        // ROBUST OCCLUSION CHECK
-        // If we are inside or very close to Rs, we hit the singularity/horizon.
         if (r < Rs * 1.001) {
             hitBH = true;
             break;
@@ -95,7 +94,8 @@ void main() {
             
             if (ir_norm > diskInner && ir_norm < diskOuter) {
                 float phi = atan(intersect.z, intersect.x);
-                vec3 baseCol = vec3(1.0, 0.5, 0.2);
+                float temp = (diskOuter - ir_norm) / (diskOuter - diskInner);
+                vec3 baseCol = mix(vec3(1.0, 0.4, 0.1), vec3(1.0, 0.9, 0.7), pow(temp, 2.0));
                 
                 vec3 tanVelDir = normalize(vec3(-intersect.z, 0.0, intersect.x));
                 float v_rel = dot(tanVelDir, -v);
@@ -103,9 +103,9 @@ void main() {
                 
                 float pattern = sin(ir_norm * 14.0 - cam.uTime * 3.5 + phi * 4.0) * 0.5 + 0.5;
                 float alpha = smoothstep(diskInner, diskInner + 0.3, ir_norm) * smoothstep(diskOuter, diskOuter - 0.5, ir_norm);
-                diskColor += finalDisk * (0.8 + 0.2 * pattern) * alpha * 1.5;
+                diskColor += finalDisk * (0.8 + 0.4 * pattern) * alpha * 1.8;
                 
-                if (length(diskColor) > 1.2) break; 
+                if (length(diskColor) > 2.5) break; 
             }
         }
 
@@ -118,9 +118,9 @@ void main() {
             if (distToObj < objRadius) {
                 vec3 normal = normalize(p - objPos);
                 vec3 lightDir = normalize(vec3(1.0, 1.0, 0.5));
-                float diff = max(dot(normal, lightDir), 0.2); // Simple diffuse + ambient
+                float diff = max(dot(normal, lightDir), 0.2);
                 FragColor = vec4(objs.colorMass[j].rgb * diff, 1.0);
-                return; // Immediate exit for planet hit
+                return;
             }
         }
 
@@ -129,17 +129,23 @@ void main() {
         v = normalize(v); 
         p += v * stepSize;
         
-        totalDist += stepSize;
-        if (totalDist > 1e13) break;
+        if (length(p) > 1e13) break;
     }
 
-    if (hitBH) {
-        diskColor = vec3(0.0); // Opaque black for the shadow
-    }
+    if (hitBH) diskColor = vec3(0.0);
 
     vec3 skyColor = hitBH ? vec3(0.0) : get_stars(v);
     vec3 combined = diskColor + skyColor * (1.0 - clamp(length(diskColor), 0.0, 1.0));
     
-    combined = combined / (combined + vec3(1.0)); // Tone mapping
-    FragColor = vec4(combined, 1.0);
+    // PRECISION RAZOR-THIN PHOTON RING (Based on closest approach min_r_norm)
+    float photonRing = exp(-pow(min_r_norm - 1.51, 2.0) * 15000.0) * 2.5;
+    
+    // SECONDARY SOFT GLOW (Thicker at top/bottom for depth)
+    float softRing = exp(-pow(min_r_norm - 1.55, 2.0) * 120.0) * 0.5 * abs(rayDir.y);
+    
+    combined += vec3(1.0, 0.85, 0.6) * (photonRing + softRing) * (hitBH ? 0.0 : 1.0);
+    
+    // Improved Tone Mapping (ACES-ish approximation)
+    combined = combined * (2.51 * combined + 0.03) / (combined * (2.43 * combined + 0.59) + 0.14);
+    FragColor = vec4(clamp(combined, 0.0, 1.0), 1.0);
 }

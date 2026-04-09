@@ -35,6 +35,10 @@ struct ObjectsUBOData {
     glm::vec4 colorMass[16];   // rgb: color, a: mass
 };
 
+RelativisticSim::RelativisticSim() {
+    // Member handles are initialized in header (C++11 in-class initializers)
+}
+
 void RelativisticSim::Initialize() {
     // 1. Shaders
     // We use the new geodesic.frag for cinematic raymarching in GL 3.3
