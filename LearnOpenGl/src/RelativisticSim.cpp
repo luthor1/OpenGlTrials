@@ -44,6 +44,16 @@ void RelativisticSim::Initialize() {
 
     if (!m_Shader || !m_GridShader || !m_PlanetShader) {
         std::cerr << "ERROR: Shaders failed to load in Phase 29!" << std::endl;
+    } else {
+        // Manually link Uniform Blocks to Binding Points for GL 3.3 (Phase 32)
+        unsigned int camIndex = glGetUniformBlockIndex(m_Shader->ID, "Camera");
+        if (camIndex != GL_INVALID_INDEX) glUniformBlockBinding(m_Shader->ID, camIndex, 1);
+
+        unsigned int diskIndex = glGetUniformBlockIndex(m_Shader->ID, "Disk");
+        if (diskIndex != GL_INVALID_INDEX) glUniformBlockBinding(m_Shader->ID, diskIndex, 2);
+
+        unsigned int objIndex = glGetUniformBlockIndex(m_Shader->ID, "Objects");
+        if (objIndex != GL_INVALID_INDEX) glUniformBlockBinding(m_Shader->ID, objIndex, 3);
     }
 
     // 2. Physics & Scaling
@@ -71,15 +81,6 @@ void RelativisticSim::Initialize() {
     glBindBufferBase(GL_UNIFORM_BUFFER, 3, m_ObjectsUBO);
 
     m_Objects.clear();
-    RelObject sun;
-    sun.pos = glm::vec3(400.0f, 0.0f, 0.0f);
-    float v1_si = (float)sqrt(G * M_SagA / (400.0 * scale));
-    sun.vel = glm::vec3(0.0f, 0.0f, v1_si / (float)scale); 
-    sun.mass = 1.98892e30f;
-    sun.radius = 20.0f;
-    sun.color = glm::vec3(1.0f, 1.0f, 0.2f);
-    sun.name = "Yellow Star";
-    m_Objects.push_back(sun);
 
     CreateQuad();
     GenerateGrid();
@@ -190,10 +191,16 @@ void RelativisticSim::SyncUBOs() {
     cData.up = cam.Up;
     cData.aspect = (float)Renderer::GetViewportWidth() / Renderer::GetViewportHeight();
     
-    // Check if camera is actually moving for optimization
+    // Check if camera is actually moving or rotating for optimization
     static glm::vec3 lastPos = glm::vec3(0);
-    cData.moving = (glm::distance(cam.Position, lastPos) > 0.001f) ? 1 : 0;
+    static glm::vec3 lastFront = glm::vec3(0);
+    bool isMoving = (glm::distance(cam.Position, lastPos) > 0.001f);
+    bool isRotating = (glm::distance(cam.Front, lastFront) > 0.001f);
+    
+    cData.moving = (isMoving || isRotating) ? 1 : 0;
+    
     lastPos = cam.Position;
+    lastFront = cam.Front;
     
     cData.uTime = (float)glfwGetTime();
 

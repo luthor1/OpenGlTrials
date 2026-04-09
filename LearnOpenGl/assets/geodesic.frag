@@ -3,7 +3,7 @@
 out vec4 FragColor;
 in vec2 TexCoords;
 
-layout(std140, binding = 1) uniform Camera {
+layout(std140) uniform Camera {
     vec3 pos;
     float tanHalfFov;
     vec3 right;
@@ -14,14 +14,14 @@ layout(std140, binding = 1) uniform Camera {
     float uTime;
 } cam;
 
-layout(std140, binding = 2) uniform Disk {
+layout(std140) uniform Disk {
     float r1;
     float r2;
     float num;
     float thickness;
 } diskData;
 
-layout(std140, binding = 3) uniform Objects {
+layout(std140) uniform Objects {
     int numObjects;
     vec4 posRadius[16]; // xyz: pos, w: radius
     vec4 colorMass[16]; // rgb: color, a: mass
@@ -30,7 +30,7 @@ layout(std140, binding = 3) uniform Objects {
 const float c = 299792458.0;
 const float G = 6.67430e-11;
 const float SagA_mass = 8.54e36;
-const float Rs = 2.0 * G * SagA_mass / (c * c);
+const float Rs = (2.0 * G * SagA_mass / (c * c)) / 1.0e9; // Normalized scale: 1.0 unit = 1e9 meters
 
 // Cinematic Constants
 const float diskInner = 2.6; 
@@ -70,7 +70,7 @@ void main() {
     vec3 diskColor = vec3(0.0);
     bool hitBH = false;
     float totalDist = 0.0;
-    int maxSteps = cam.moving == 1 ? 120 : 350;
+    int maxSteps = 400; // Constant high quality to prevent popping during movement
 
     for (int i = 0; i < maxSteps; ++i) {
         float r = length(p);
