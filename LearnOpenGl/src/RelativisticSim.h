@@ -57,6 +57,7 @@ private:
 
     std::vector<RelObject> m_Objects;
     float m_CamSpeed = 1.0f;
+    bool m_ShowGrid = true;
     bool m_FKeyPressed = false;
     float m_TimeScale = 1000.0f;
 

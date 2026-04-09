@@ -30,7 +30,7 @@ layout(std140) uniform Objects {
 const float c = 299792458.0;
 const float G = 6.67430e-11;
 const float SagA_mass = 8.54e36;
-const float Rs = (2.0 * G * SagA_mass / (c * c)) / 1.0e9; // Normalized scale: 1.0 unit = 1e9 meters
+const float Rs = (2.0 * G * SagA_mass / (c * c)) / 1.0e9;
 
 // Cinematic Constants
 const float diskInner = 2.6; 
@@ -38,9 +38,10 @@ const float diskOuter = 8.0;
 
 vec3 get_accel(vec3 p, vec3 v) {
     float r = length(p);
-    if (r < Rs * 0.02) return vec3(0.0);
+    if (r < Rs * 0.99) return vec3(0.0); // Inside Horizon: No acceleration needed (ray is dead)
     vec3 L = cross(p, v);
     float h2 = dot(L, L);
+    // Standard Schwarzschild effective potential acceleration
     return -1.5 * Rs * h2 * p / pow(r, 5.0);
 }
 
@@ -70,17 +71,20 @@ void main() {
     vec3 diskColor = vec3(0.0);
     bool hitBH = false;
     float totalDist = 0.0;
-    int maxSteps = 400; // Constant high quality to prevent popping during movement
+    int maxSteps = 400; // Consistent high quality
 
     for (int i = 0; i < maxSteps; ++i) {
         float r = length(p);
-        float stepSize = max(Rs * 0.05, r * 0.05);
-        if (r < Rs * 4.0) stepSize = Rs * 0.02;
-
-        if (r < 1.002 * Rs) {
+        
+        // ROBUST OCCLUSION CHECK
+        // If we are inside or very close to Rs, we hit the singularity/horizon.
+        if (r < Rs * 1.001) {
             hitBH = true;
             break;
         }
+
+        float stepSize = max(Rs * 0.04, r * 0.04);
+        if (r < Rs * 4.0) stepSize = Rs * 0.015;
 
         // Accretion Disk Interaction
         if (p.y * (p.y + v.y * stepSize) < 0.0) {
@@ -91,14 +95,14 @@ void main() {
             
             if (ir_norm > diskInner && ir_norm < diskOuter) {
                 float phi = atan(intersect.z, intersect.x);
-                vec3 baseCol = vec3(1.0, 0.5, 0.1);
+                vec3 baseCol = vec3(1.0, 0.5, 0.2);
                 
                 vec3 tanVelDir = normalize(vec3(-intersect.z, 0.0, intersect.x));
                 float v_rel = dot(tanVelDir, -v);
                 vec3 finalDisk = apply_doppler(baseCol, v_rel);
                 
-                float pattern = sin(ir_norm * 12.0 - cam.uTime * 3.0 + phi * 4.0) * 0.5 + 0.5;
-                float alpha = smoothstep(diskInner, diskInner + 0.5, ir_norm) * smoothstep(diskOuter, diskOuter - 1.0, ir_norm);
+                float pattern = sin(ir_norm * 14.0 - cam.uTime * 3.5 + phi * 4.0) * 0.5 + 0.5;
+                float alpha = smoothstep(diskInner, diskInner + 0.3, ir_norm) * smoothstep(diskOuter, diskOuter - 0.5, ir_norm);
                 diskColor += finalDisk * (0.8 + 0.2 * pattern) * alpha * 1.5;
                 
                 if (length(diskColor) > 1.2) break; 
@@ -114,9 +118,13 @@ void main() {
         if (totalDist > 1e13) break;
     }
 
+    if (hitBH) {
+        diskColor = vec3(0.0); // Opaque black for the shadow
+    }
+
     vec3 skyColor = hitBH ? vec3(0.0) : get_stars(v);
-    vec3 finalColor = diskColor + skyColor * (1.0 - clamp(length(diskColor), 0.0, 1.0));
+    vec3 combined = diskColor + skyColor * (1.0 - clamp(length(diskColor), 0.0, 1.0));
     
-    finalColor = finalColor / (finalColor + vec3(1.0));
-    FragColor = vec4(finalColor, 1.0);
+    combined = combined / (combined + vec3(1.0)); // Tone mapping
+    FragColor = vec4(combined, 1.0);
 }

@@ -103,7 +103,7 @@ void RelativisticSim::Update(float dt) {
             planet.vel = glm::vec3(-sin(angle) * v_si / 1e9f, 0, cos(angle) * v_si / 1e9f);
             planet.mass = 5.972e24f * 100000.0f; 
             planet.radius = 40.0f;
-            planet.color = glm::vec3(0.3f, 0.6f, 1.0f);
+            planet.color = glm::vec3(0.34f, 0.62f, 0.98f);
             planet.name = "Celestial Impact Body";
             m_Objects.push_back(planet);
             m_FKeyPressed = true;
@@ -278,7 +278,7 @@ void RelativisticSim::Render() {
         }
     }
 
-    if (m_GridShader) {
+    if (m_ShowGrid && m_GridShader) {
         m_GridShader->use();
         m_GridShader->setMat4("viewProj", projection * view);
         glBindVertexArray(m_GridVAO);
@@ -295,6 +295,7 @@ void RelativisticSim::OnRuntimeUI() {
     
     ImGui::SliderFloat("Cam Fly Speed", &m_CamSpeed, 1.0f, 500.0f);
     ImGui::SliderFloat("Physics Time Scale", &m_TimeScale, 1.0f, 20000.0f);
+    ImGui::Checkbox("Show Spacetime Grid", &m_ShowGrid);
     
     ImGui::Separator();
     ImGui::Text("Celestial Bodies: %d", (int)m_Objects.size());
@@ -339,29 +340,49 @@ void RelativisticSim::CreatePlanetMesh() {
 }
 
 void RelativisticSim::GenerateGrid() {
-    const int gridSize = 42; const float spacing = 15.0f; 
-    std::vector<glm::vec3> vertices; std::vector<unsigned int> indices;
-    for (int z = 0; z <= gridSize; ++z) {
-        for (int x = 0; x <= gridSize; ++x) {
-            float worldX = (x - gridSize / 2) * spacing; float worldZ = (z - gridSize / 2) * spacing;
-            float r_bh = sqrt(worldX * worldX + worldZ * worldZ);
-            float y = (r_bh > m_Rs) ? (float)(-3.5 * sqrt(m_Rs * (r_bh - m_Rs))) : (float)(-3.5 * m_Rs);
-            vertices.push_back(glm::vec3(worldX, y, worldZ));
+    const int rings = 60; 
+    const int segments = 80;
+    const float maxRadius = 1000.0f;
+    const float depthScale = 18.0f; 
+    
+    std::vector<glm::vec3> vertices;
+    std::vector<unsigned int> indices;
+
+    float maxWarp = sqrt(maxRadius - (float)m_Rs);
+
+    for (int r_idx = 0; r_idx <= rings; ++r_idx) {
+        float t = (float)r_idx / rings;
+        float r = (float)m_Rs + (maxRadius - (float)m_Rs) * pow(t, 2.0f);
+        
+        // CORRECT GRAVITY WELL: Deep at center, Flat at edges
+        float y = (float)(depthScale * (sqrt(std::max(0.0f, r - (float)m_Rs)) - maxWarp));
+
+        for (int s_idx = 0; s_idx < segments; ++s_idx) {
+            float phi = (float)s_idx / segments * 2.0f * 3.14159f;
+            vertices.push_back(glm::vec3(cos(phi) * r, y, sin(phi) * r));
+            
+            int curr = r_idx * segments + s_idx;
+            int next = r_idx * segments + (s_idx + 1) % segments;
+            
+            indices.push_back(curr); indices.push_back(next);
+            
+            if (r_idx < rings) {
+                int nextRing = (r_idx + 1) * segments + s_idx;
+                indices.push_back(curr); indices.push_back(nextRing);
+            }
         }
     }
-    for (int z = 0; z < gridSize; ++z) {
-        for (int x = 0; x < gridSize; ++x) {
-            int i = z * (gridSize + 1) + x;
-            indices.push_back(i); indices.push_back(i + 1); indices.push_back(i); indices.push_back(i + gridSize + 1);
-        }
-    }
+
     if (m_GridVAO == 0) glGenVertexArrays(1, &m_GridVAO);
     if (m_GridVBO == 0) glGenBuffers(1, &m_GridVBO);
     if (m_GridEBO == 0) glGenBuffers(1, &m_GridEBO);
-    glBindVertexArray(m_GridVAO); glBindBuffer(GL_ARRAY_BUFFER, m_GridVBO);
+
+    glBindVertexArray(m_GridVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, m_GridVBO);
     glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(glm::vec3), vertices.data(), GL_DYNAMIC_DRAW);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_GridEBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
-    glEnableVertexAttribArray(0); glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
     m_GridIndexCount = (int)indices.size();
 }
