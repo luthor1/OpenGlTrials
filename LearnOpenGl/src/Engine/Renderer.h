@@ -12,11 +12,17 @@ public:
     static void EndFrame();
 
     static void RenderToViewport();
+    static void Resize(int w, int h);
     
-    static std::shared_ptr<Framebuffer> GetViewportFramebuffer() { return s_ViewportFB; }
+    static unsigned int GetViewportTexture() { return s_ViewportFB->GetTexture(); }
+    static int GetViewportWidth() { return s_IntermediateFB ? s_IntermediateFB->GetWidth() : 1280; }
+    static int GetViewportHeight() { return s_IntermediateFB ? s_IntermediateFB->GetHeight() : 720; }
 
 private:
+    static std::shared_ptr<Framebuffer> s_MultisampleFB;
+    static std::shared_ptr<Framebuffer> s_IntermediateFB;
     static std::shared_ptr<Framebuffer> s_ViewportFB;
+    
     static std::shared_ptr<Shader> s_PostProcessShader;
     static unsigned int s_QuadVAO, s_QuadVBO;
 };

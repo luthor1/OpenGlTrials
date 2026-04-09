@@ -26,21 +26,26 @@ void Application::Run() {
 
         glfwPollEvents();
 
-        // 1. Physics / Simulation Update
+        // 1. UI Begin & Layout Calculation
+        s_EditorLayer->Begin();
+        s_EditorLayer->OnImGuiRender(); 
+
+        // 2. Physics / Simulation Update (Based on UI sizing if needed)
         if (SimulationManager::Get().GetActive() && SimulationManager::Get().IsRunning() && !SimulationManager::Get().IsPaused()) {
             SimulationManager::Get().GetActive()->Update(deltaTime);
         }
 
-        // 2. Rendering
+        // 3. Main Scenic Rendering
         Renderer::BeginFrame();
         if (auto active = SimulationManager::Get().GetActive()) {
             active->Render();
         }
         Renderer::EndFrame();
 
-        // 3. UI
-        s_EditorLayer->Begin();
-        s_EditorLayer->OnImGuiRender();
+        // 4. Post-Process & FBO Resolve
+        Renderer::RenderToViewport();
+
+        // 5. Final UI Flush
         s_EditorLayer->End();
 
         m_Window->OnUpdate();

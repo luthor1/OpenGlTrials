@@ -146,6 +146,7 @@
     <ClCompile Include="src\FluidSimSPH.cpp" />
     <ClCompile Include="src\Framebuffer.cpp" />
     <ClCompile Include="src\SoftBodySim.cpp" />
+    <ClCompile Include="src\FluidSimMasterpiece.cpp" />
     <ClCompile Include="src\Octree.cpp" />
     <ClCompile Include="src\Engine\Application.cpp" />
     <ClCompile Include="src\Engine\Window.cpp" />
@@ -175,6 +176,7 @@
     <ClInclude Include="src\FluidSimSPH.h" />
     <ClInclude Include="src\Framebuffer.h" />
     <ClInclude Include="src\SoftBodySim.h" />
+    <ClInclude Include="src\FluidSimMasterpiece.h" />
     <ClInclude Include="src\Octree.h" />
     <ClInclude Include="src\Picker.h" />
     <ClInclude Include="src\Engine\Application.h" />

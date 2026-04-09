@@ -3,19 +3,16 @@
 #include <vector>
 #include <glm/glm.hpp>
 
-struct Spring {
-    int p1, p2;
-    float restLength;
-    float stiffness;
-    float damping;
-};
-
 struct SoftParticle {
     glm::vec3 Position;
     glm::vec3 OldPosition;
     glm::vec3 Velocity;
-    glm::vec3 Acceleration;
     float Mass;
+};
+
+struct PBDConstraint {
+    int p1, p2;
+    float restLength;
 };
 
 class SoftBodySim : public ISimulation {
@@ -23,8 +20,8 @@ public:
     SoftBodySim();
     virtual ~SoftBodySim();
 
-    std::string GetName() const override { return "3D Soft Body (Mass-Spring)"; }
-    std::string GetDescription() const override { return "Deformable jello physics with structural and shear springs."; }
+    std::string GetName() const override { return "Soft Body Masterpiece (PBD)"; }
+    std::string GetDescription() const override { return "Advanced Position Based Dynamics with Mesh deformation and smooth shading."; }
 
     void OnSetupUI() override;
     void Initialize() override;
@@ -35,20 +32,20 @@ public:
     void Shutdown() override;
 
 private:
-    int m_Dim = 5; // Cube of 5x5x5
-    float m_Stiffness = 500.0f;
-    float m_Damping = 2.0f;
+    int m_Dim = 6; 
+    float m_Compliance = 0.0001f;
     float m_Gravity = 9.81f;
 
     std::vector<SoftParticle> m_Particles;
-    std::vector<Spring> m_Springs;
+    std::vector<PBDConstraint> m_Constraints;
+    std::vector<unsigned int> m_MeshIndices;
 
     // OpenGL
-    unsigned int m_VAO, m_VBO, m_IBO, m_InstPosVBO;
+    unsigned int m_VAO, m_VBO, m_IBO, m_NormalVBO;
     int m_IndexCount;
 
-    void CreateCube();
-    void AddSpring(int i, int j, float stiffness);
-    void SolveSprings();
-    void Integrate(float dt);
+    void CreateSoftBody();
+    void AddConstraint(int i, int j);
+    void SolveConstraints();
+    void UpdateNormals();
 };

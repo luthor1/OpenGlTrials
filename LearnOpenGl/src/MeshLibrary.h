@@ -14,4 +14,6 @@ class MeshLibrary {
 public:
     static void GetSphere(std::vector<Vertex>& vertices, std::vector<unsigned int>& indices, int segments = 16);
     static void GetGrid(std::vector<Vertex>& vertices, std::vector<unsigned int>& indices, int size = 10);
+    static void GetCube(std::vector<Vertex>& vertices, std::vector<unsigned int>& indices);
+    static void DrawCube(); // Rapid draw for containers/floors
 };

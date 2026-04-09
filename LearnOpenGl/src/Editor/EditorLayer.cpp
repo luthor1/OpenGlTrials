@@ -4,6 +4,7 @@
 
 #include "EditorLayer.h"
 #include "../Engine/Application.h"
+#include "../Engine/Renderer.h"
 #include "../SimulationManager.h"
 #include <iostream>
 #include <vector>
@@ -66,95 +67,117 @@ void EditorLayer::End() {
 
 void EditorLayer::OnImGuiRender() {
     ImGuiIO& io = ImGui::GetIO();
-    float winW = (float)Application::Get().GetWindow().GetWidth();
-    float winH = (float)Application::Get().GetWindow().GetHeight();
+    float winW = io.DisplaySize.x;
+    float winH = io.DisplaySize.y;
 
-    // Setup a classic sidebar-based layout
-    float sidebarW = 320.0f;
-    float consoleH = 180.0f;
+    float sidebarWidth = winW * 0.20f;
+    if (sidebarWidth < 260.0f) sidebarWidth = 260.0f;
+    
+    float consoleHeight = winH * 0.22f;
+    if (consoleHeight < 150.0f) consoleHeight = 150.0f;
 
-    // 1. Simulation Library (Left Sidebar Top)
+    float mainColumnWidth = winW - sidebarWidth;
+
+    // 1. Sidebar (Explorer & Inspector)
     {
-        ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2(sidebarW, winH * 0.4f), ImGuiCond_FirstUseEver);
-        ImGui::Begin("Simulation Library");
-        ImGui::TextDisabled("Available Blueprints");
+        ImGui::SetNextWindowPos(ImVec2(0, 0));
+        ImGui::SetNextWindowSize(ImVec2(sidebarWidth, winH));
+        ImGui::Begin("Engine Explorer", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
+        
+        ImGui::TextDisabled("ACTIVE PROJECTS");
         ImGui::Separator();
         auto& sims = SimulationManager::Get().GetSimulations();
         for (int i = 0; i < (int)sims.size(); ++i) {
             bool isSelected = (SimulationManager::Get().GetActiveIndex() == i);
-            char label[128];
-            sprintf(label, "[%s] %s", isSelected ? "*" : " ", sims[i]->GetName().c_str());
-            if (ImGui::Selectable(label, isSelected)) {
+            if (ImGui::Selectable(sims[i]->GetName().c_str(), isSelected)) {
                 SimulationManager::Get().SwitchTo(i);
-                AddLog("Switched to simulation: " + sims[i]->GetName());
+                AddLog("Project: Loaded " + sims[i]->GetName());
             }
         }
-        ImGui::End();
-    }
-
-    // 2. Inspector Panel (Left Sidebar Bottom)
-    {
-        ImGui::SetNextWindowPos(ImVec2(10, winH * 0.4f + 20), ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2(sidebarW, winH - (winH * 0.4f + 30)), ImGuiCond_FirstUseEver);
-        ImGui::Begin("Inspector Panel");
+        
+        ImGui::Dummy(ImVec2(0, 20));
+        ImGui::Separator();
+        ImGui::TextDisabled("ENGINE INSPECTOR");
+        
         if (auto active = SimulationManager::Get().GetActive()) {
-            ImGui::TextColored(ImVec4(1, 0.8f, 0, 1), "PROPERTIES: %s", active->GetName().c_str());
-            ImGui::Dummy(ImVec2(0, 5));
-            ImGui::Separator();
-            ImGui::Dummy(ImVec2(0, 5));
-
+            ImGui::TextColored(ImVec4(0, 1, 0.8f, 1), "Target: %s", active->GetName().c_str());
             if (SimulationManager::Get().IsRunning()) {
                 active->OnRuntimeUI();
-                ImGui::Dummy(ImVec2(0, 10));
-                if (ImGui::Button("STOP SESSION", ImVec2(-1, 35))) {
-                    SimulationManager::Get().Stop();
-                    AddLog("Simulation session stopped.");
-                }
+                if (ImGui::Button("KILL PROCESS", ImVec2(-1, 35))) SimulationManager::Get().Stop();
             } else {
                 active->OnSetupUI();
-                ImGui::Dummy(ImVec2(0, 10));
-                if (ImGui::Button("START ENGINE", ImVec2(-1, 45))) {
+                if (ImGui::Button("LAUNCH ENGINE", ImVec2(-1, 40))) {
                     SimulationManager::Get().Start();
-                    AddLog("Simulation engine started: " + active->GetName());
+                    AddLog("Engine: Launching " + active->GetName());
                 }
             }
-        } else {
-            ImGui::Text("No simulation selected.");
         }
-        ImGui::End();
-    }
-
-    // 3. Telemetry / Performance Graph (Right Sidebar Top)
-    {
-        ImGui::SetNextWindowPos(ImVec2(winW - sidebarW - 10, 10), ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2(sidebarW, 160), ImGuiCond_FirstUseEver);
-        ImGui::Begin("Performance & Telemetry");
-        float currentSPF = 1000.0f / io.Framerate;
-        s_FrameTimes.push_back(currentSPF);
-        if (s_FrameTimes.size() > MAX_FRAME_HISTORY) s_FrameTimes.pop_front();
-
-        std::vector<float> data(s_FrameTimes.begin(), s_FrameTimes.end());
-        ImGui::PlotLines("SPF (ms)", data.data(), (int)data.size(), 0, nullptr, 0.0f, 33.0f, ImVec2(0, 80));
         
-        ImGui::Columns(2, "stats");
-        ImGui::Text("Current FPS:"); ImGui::NextColumn(); ImGui::TextColored(ImVec4(0,1,0,1), "%.1f", io.Framerate); ImGui::NextColumn();
-        ImGui::Text("Frame Time:"); ImGui::NextColumn(); ImGui::TextColored(ImVec4(0,1,1,1), "%.3f ms", currentSPF); ImGui::NextColumn();
-        ImGui::Columns(1);
+        ImGui::Dummy(ImVec2(0, 20));
+        ImGui::Separator();
+        ImGui::TextDisabled("TELEMETRY");
+        ImGui::Text("FPS: %.1f", io.Framerate);
+        ImGui::Text("Frame Time: %.3f ms", 1000.0f / io.Framerate);
+        
         ImGui::End();
     }
 
-    // 4. Console (Bottom Center-ish)
+    // 2. Viewport (Main Center Workspace)
     {
-        ImGui::SetNextWindowPos(ImVec2(sidebarW + 20, winH - consoleH - 10), ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2(winW - sidebarW * 2 - 30, consoleH), ImGuiCond_FirstUseEver);
-        ImGui::Begin("Engine Console");
-        if (ImGui::Button("Clear")) s_ConsoleLogs.clear();
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{ 0, 0 });
+        ImGui::SetNextWindowPos(ImVec2(sidebarWidth, 0));
+        ImGui::SetNextWindowSize(ImVec2(mainColumnWidth, winH - consoleHeight));
+        ImGui::Begin("Simulation Workspace", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_MenuBar);
+        
+        if (ImGui::BeginMenuBar()) {
+            if (ImGui::BeginMenu("Renderer")) {
+                static float exposure = 1.1f;
+                if (ImGui::SliderFloat("Exposure", &exposure, 0.1f, 5.0f)) { /* master logic */ }
+                ImGui::EndMenu();
+            }
+            ImGui::EndMenuBar();
+        }
+
+        ImVec2 viewportSize = ImGui::GetContentRegionAvail();
+        if (viewportSize.x > 0 && viewportSize.y > 0) {
+            // SYNCED RESIZE: Happens BEFORE Main Render in Application cycle
+            Renderer::Resize((int)viewportSize.x, (int)viewportSize.y);
+            ImGui::Image((void*)(intptr_t)Renderer::GetViewportTexture(), viewportSize, ImVec2(0, 1), ImVec2(1, 0));
+        }
+
+        // Focused Camera Interaction (Fly-Cam)
+        if (ImGui::IsWindowFocused() && ImGui::IsWindowHovered()) {
+            Camera& cam = SimulationManager::Get().GetCamera();
+            float dt = io.DeltaTime;
+
+            if (ImGui::IsKeyDown(ImGuiKey_W)) cam.ProcessKeyboard(Camera::FORWARD, dt);
+            if (ImGui::IsKeyDown(ImGuiKey_S)) cam.ProcessKeyboard(Camera::BACKWARD, dt);
+            if (ImGui::IsKeyDown(ImGuiKey_A)) cam.ProcessKeyboard(Camera::LEFT, dt);
+            if (ImGui::IsKeyDown(ImGuiKey_D)) cam.ProcessKeyboard(Camera::RIGHT, dt);
+            if (ImGui::IsKeyDown(ImGuiKey_Space)) cam.ProcessKeyboard(Camera::UP, dt);
+            if (ImGui::IsKeyDown(ImGuiKey_Q)) cam.ProcessKeyboard(Camera::DOWN, dt);
+
+            if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
+                cam.ProcessMouseMovement(io.MouseDelta.x, -io.MouseDelta.y);
+            }
+            if (io.MouseWheel != 0) {
+                cam.ProcessMouseScroll(io.MouseWheel);
+            }
+        }
+
+        ImGui::End();
+        ImGui::PopStyleVar();
+    }
+
+    // 3. Console (Output Panel)
+    {
+        ImGui::SetNextWindowPos(ImVec2(sidebarWidth, winH - consoleHeight));
+        ImGui::SetNextWindowSize(ImVec2(mainColumnWidth, consoleHeight));
+        ImGui::Begin("Engine Console", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
+        if (ImGui::Button("Clear Logs")) s_ConsoleLogs.clear();
         ImGui::Separator();
         ImGui::BeginChild("LogScroll");
-        for (const auto& log : s_ConsoleLogs) {
-            ImGui::TextUnformatted(log.c_str());
-        }
+        for (const auto& log : s_ConsoleLogs) ImGui::TextUnformatted(log.c_str());
         if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY()) ImGui::SetScrollHereY(1.0f);
         ImGui::EndChild();
         ImGui::End();

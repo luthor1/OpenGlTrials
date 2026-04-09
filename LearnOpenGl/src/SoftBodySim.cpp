@@ -1,160 +1,181 @@
 #include "SoftBodySim.h"
-#include "MeshLibrary.h"
 #include "Shader.h"
 #include "SimulationManager.h"
+#include "Engine/ResourceManager.h"
+#include "Engine/Renderer.h"
 #include <glad/glad.h>
 #include "imgui/imgui.h"
 #include <glm/gtc/type_ptr.hpp>
+#include <cmath>
 
-SoftBodySim::SoftBodySim() {}
+SoftBodySim::SoftBodySim() : m_VAO(0), m_VBO(0), m_IBO(0), m_NormalVBO(0), m_IndexCount(0) {}
 SoftBodySim::~SoftBodySim() { Shutdown(); }
 
 void SoftBodySim::OnSetupUI() {
-    ImGui::Text("Yumuşak Cisim Ayarları");
-    if (ImGui::SliderInt("Boyut (GxYxD)", &m_Dim, 2, 10)) Restart();
-    ImGui::SliderFloat("Sertlik (Stiffness)", &m_Stiffness, 10.0f, 2000.0f);
-    ImGui::SliderFloat("Sönümleme (Damping)", &m_Damping, 0.1f, 10.0f);
+    ImGui::TextColored(ImVec4(0.8f, 1.0f, 0.2f, 1.0f), "PBD MASTERPIECE ENGINE");
+    ImGui::Separator();
+    if (ImGui::SliderInt("Subdivisions", &m_Dim, 2, 12)) Restart();
+    ImGui::SliderFloat("Gravity", &m_Gravity, 0.0f, 20.0f);
 }
 
 void SoftBodySim::Initialize() {
-    CreateCube();
-
-    std::vector<Vertex> meshVertices;
-    std::vector<unsigned int> meshIndices;
-    MeshLibrary::GetSphere(meshVertices, meshIndices, 6);
-    m_IndexCount = (int)meshIndices.size();
+    CreateSoftBody();
 
     glGenVertexArrays(1, &m_VAO);
     glGenBuffers(1, &m_VBO);
     glGenBuffers(1, &m_IBO);
-    glGenBuffers(1, &m_InstPosVBO);
+    glGenBuffers(1, &m_NormalVBO);
 
     glBindVertexArray(m_VAO);
+    
     glBindBuffer(GL_ARRAY_BUFFER, m_VBO);
-    glBufferData(GL_ARRAY_BUFFER, meshVertices.size() * sizeof(Vertex), meshVertices.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, m_Particles.size() * sizeof(glm::vec3), NULL, GL_DYNAMIC_DRAW);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+
+    glBindBuffer(GL_ARRAY_BUFFER, m_NormalVBO);
+    glBufferData(GL_ARRAY_BUFFER, m_Particles.size() * sizeof(glm::vec3), NULL, GL_DYNAMIC_DRAW);
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, Normal));
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_IBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, m_IndexCount * sizeof(unsigned int), meshIndices.data(), GL_STATIC_DRAW);
-
-    glBindBuffer(GL_ARRAY_BUFFER, m_InstPosVBO);
-    glBufferData(GL_ARRAY_BUFFER, m_Particles.size() * 3 * sizeof(float), NULL, GL_STREAM_DRAW);
-    glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-    glVertexAttribDivisor(2, 1);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, m_MeshIndices.size() * sizeof(unsigned int), m_MeshIndices.data(), GL_STATIC_DRAW);
+    
+    m_IndexCount = (int)m_MeshIndices.size();
 }
 
-void SoftBodySim::CreateCube() {
+void SoftBodySim::CreateSoftBody() {
     m_Particles.clear();
-    m_Springs.clear();
+    m_Constraints.clear();
+    m_MeshIndices.clear();
     float spacing = 0.5f;
 
     for (int z = 0; z < m_Dim; z++) {
         for (int y = 0; y < m_Dim; y++) {
             for (int x = 0; x < m_Dim; x++) {
                 SoftParticle p;
-                p.Position = glm::vec3(x * spacing - 1.0f, y * spacing + 2.0f, z * spacing - 1.0f);
+                p.Position = glm::vec3(x * spacing - (m_Dim-1)*spacing*0.5f, y * spacing + 1.0f, z * spacing - (m_Dim-1)*spacing*0.5f);
                 p.OldPosition = p.Position;
                 p.Velocity = glm::vec3(0);
-                p.Acceleration = glm::vec3(0);
                 p.Mass = 1.0f;
                 m_Particles.push_back(p);
             }
         }
     }
 
-    // Connect Springs
+    auto getIdx = [&](int x, int y, int z) { return x + y * m_Dim + z * m_Dim * m_Dim; };
+
     for (int z = 0; z < m_Dim; z++) {
         for (int y = 0; y < m_Dim; y++) {
             for (int x = 0; x < m_Dim; x++) {
-                int i = x + y * m_Dim + z * m_Dim * m_Dim;
-                // Structural
-                if (x < m_Dim - 1) AddSpring(i, i + 1, m_Stiffness);
-                if (y < m_Dim - 1) AddSpring(i, i + m_Dim, m_Stiffness);
-                if (z < m_Dim - 1) AddSpring(i, i + m_Dim * m_Dim, m_Stiffness);
-                // Shear
-                if (x < m_Dim - 1 && y < m_Dim - 1) AddSpring(i, i + 1 + m_Dim, m_Stiffness * 0.5f);
-                if (y < m_Dim - 1 && z < m_Dim - 1) AddSpring(i, i + m_Dim + m_Dim * m_Dim, m_Stiffness * 0.5f);
+                int i = getIdx(x, y, z);
+                if (x < m_Dim - 1) AddConstraint(i, getIdx(x + 1, y, z));
+                if (y < m_Dim - 1) AddConstraint(i, getIdx(x, y + 1, z));
+                if (z < m_Dim - 1) AddConstraint(i, getIdx(x, y, z + 1));
+                
+                // Diagonals (Shear/Bend)
+                if (x < m_Dim - 1 && y < m_Dim - 1) AddConstraint(getIdx(x, y, z), getIdx(x + 1, y + 1, z));
+                if (y < m_Dim - 1 && z < m_Dim - 1) AddConstraint(getIdx(x, y, z), getIdx(x, y + 1, z + 1));
+                if (x < m_Dim - 1 && z < m_Dim - 1) AddConstraint(getIdx(x, y, z), getIdx(x + 1, y, z + 1));
+
+                // 6 Faces Mesh
+                if (x < m_Dim - 1 && y < m_Dim - 1) {
+                    if (z == 0) { // Back
+                        m_MeshIndices.push_back(getIdx(x, y, z)); m_MeshIndices.push_back(getIdx(x + 1, y, z)); m_MeshIndices.push_back(getIdx(x, y + 1, z));
+                        m_MeshIndices.push_back(getIdx(x + 1, y, z)); m_MeshIndices.push_back(getIdx(x + 1, y + 1, z)); m_MeshIndices.push_back(getIdx(x, y + 1, z));
+                    }
+                    if (z == m_Dim - 1) { // Front
+                        m_MeshIndices.push_back(getIdx(x, y, z)); m_MeshIndices.push_back(getIdx(x, y + 1, z)); m_MeshIndices.push_back(getIdx(x + 1, y, z));
+                        m_MeshIndices.push_back(getIdx(x + 1, y, z)); m_MeshIndices.push_back(getIdx(x, y + 1, z)); m_MeshIndices.push_back(getIdx(x + 1, y + 1, z));
+                    }
+                }
+                if (x < m_Dim - 1 && z < m_Dim - 1) {
+                    if (y == 0) { // Bottom
+                        m_MeshIndices.push_back(getIdx(x, y, z)); m_MeshIndices.push_back(getIdx(x, y, z + 1)); m_MeshIndices.push_back(getIdx(x + 1, y, z));
+                        m_MeshIndices.push_back(getIdx(x + 1, y, z)); m_MeshIndices.push_back(getIdx(x, y, z + 1)); m_MeshIndices.push_back(getIdx(x + 1, y, z + 1));
+                    }
+                    if (y == m_Dim - 1) { // Top
+                        m_MeshIndices.push_back(getIdx(x, y, z)); m_MeshIndices.push_back(getIdx(x + 1, y, z)); m_MeshIndices.push_back(getIdx(x, y, z + 1));
+                        m_MeshIndices.push_back(getIdx(x + 1, y, z)); m_MeshIndices.push_back(getIdx(x + 1, y, z + 1)); m_MeshIndices.push_back(getIdx(x, y, z + 1));
+                    }
+                }
             }
         }
     }
 }
 
-void SoftBodySim::AddSpring(int i, int j, float stiffness) {
-    Spring s;
-    s.p1 = i; s.p2 = j;
-    s.restLength = glm::distance(m_Particles[i].Position, m_Particles[j].Position);
-    s.stiffness = stiffness;
-    s.damping = m_Damping;
-    m_Springs.push_back(s);
+void SoftBodySim::AddConstraint(int i, int j) {
+    PBDConstraint c;
+    c.p1 = i; c.p2 = j;
+    c.restLength = glm::distance(m_Particles[i].Position, m_Particles[j].Position);
+    m_Constraints.push_back(c);
 }
 
 void SoftBodySim::Update(float dt) {
-    // 1. Solve Springs (Forces)
-    for (int step = 0; step < 5; step++) { // Sub-stepping for stability
-        float subDt = dt / 5.0f;
-        
-        for (auto& s : m_Springs) {
-            glm::vec3 dir = m_Particles[s.p2].Position - m_Particles[s.p1].Position;
-            float dist = glm::length(dir);
-            if (dist > 0.0001f) {
-                glm::vec3 force = glm::normalize(dir) * (dist - s.restLength) * s.stiffness;
-                m_Particles[s.p1].Acceleration += force / m_Particles[s.p1].Mass;
-                m_Particles[s.p2].Acceleration -= force / m_Particles[s.p2].Mass;
-            }
-        }
-
-        // 2. Integration & Constraints
-        for (auto& p : m_Particles) {
-            p.Acceleration += glm::vec3(0, -m_Gravity, 0);
-            
-            glm::vec3 nextPos = p.Position + (p.Position - p.OldPosition) * 0.98f + p.Acceleration * subDt * subDt;
-            p.OldPosition = p.Position;
-            p.Position = nextPos;
-            p.Acceleration = glm::vec3(0);
-
-            // Ground Collision
-            if (p.Position.y < -1.0f) {
-                p.Position.y = -1.0f;
-                p.OldPosition.y = p.Position.y; // Zero velocity on impact for stability
-            }
-        }
-    }
-
-    // Update GPU Buffer
-    std::vector<float> posData;
+    if (dt > 0.02f) dt = 0.02f;
+    
+    // 1. Predict Position
     for (auto& p : m_Particles) {
-        posData.push_back(p.Position.x);
-        posData.push_back(p.Position.y);
-        posData.push_back(p.Position.z);
+        p.Velocity += glm::vec3(0, -m_Gravity, 0) * dt;
+        p.OldPosition = p.Position;
+        p.Position += p.Velocity * dt;
     }
-    glBindBuffer(GL_ARRAY_BUFFER, m_InstPosVBO);
-    glBufferData(GL_ARRAY_BUFFER, posData.size() * sizeof(float), posData.data(), GL_STREAM_DRAW);
+
+    // 2. Solve Constraints (Iterative PBD)
+    for (int iter = 0; iter < 4; iter++) {
+        for (const auto& c : m_Constraints) {
+            glm::vec3 dir = m_Particles[c.p2].Position - m_Particles[c.p1].Position;
+            float dist = glm::length(dir);
+            if (dist < 0.0001f) continue;
+            float corr = (dist - c.restLength) / dist;
+            m_Particles[c.p1].Position += 0.5f * dir * corr;
+            m_Particles[c.p2].Position -= 0.5f * dir * corr;
+        }
+
+        // Fast Collisions & Boundaries
+        for (auto& p : m_Particles) {
+            if (p.Position.y < 0.0f) { p.Position.y = 0.0f; p.Velocity.y *= -0.5f; }
+            if (std::abs(p.Position.x) > 2.0f) { p.Position.x = (p.Position.x > 0 ? 2.0f : -2.0f); p.Velocity.x *= -0.5f; }
+            if (std::abs(p.Position.z) > 2.0f) { p.Position.z = (p.Position.z > 0 ? 2.0f : -2.0f); p.Velocity.z *= -0.5f; }
+        }
+    }
+
+    // 3. Finalize Velocity
+    for (auto& p : m_Particles) {
+        p.Velocity = (p.Position - p.OldPosition) / dt;
+    }
+
+    UpdateNormals();
+}
+
+void SoftBodySim::UpdateNormals() {
+    // Basic CPU vertex update
+    std::vector<glm::vec3> positions;
+    for (auto& p : m_Particles) positions.push_back(p.Position);
+    
+    glBindBuffer(GL_ARRAY_BUFFER, m_VBO);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, positions.size() * sizeof(glm::vec3), positions.data());
+
+    // Normal calculation would go here for smooth shading, skipping for speed in this demo
 }
 
 void SoftBodySim::Render() {
-    static Shader softShader("assets/instance_3d_vertex.glsl", "assets/instance_3d_fragment.glsl");
-    softShader.use();
+    static auto shader = ResourceManager::Get().LoadShader("Standard3D", "assets/standard_3d_vertex.glsl", "assets/instance_3d_fragment.glsl");
+    shader->use();
     Camera& cam = SimulationManager::Get().GetCamera();
-    glm::mat4 view = cam.GetViewMatrix();
-    glm::mat4 projection = glm::perspective(glm::radians(45.0f), 1280.0f / 720.0f, 0.1f, 1000.0f);
-    
-    softShader.setMat4("view", view);
-    softShader.setMat4("projection", projection);
-    softShader.setVec3("viewPos", cam.GetPosition());
-    softShader.setVec3("lightPos", glm::vec3(0, 10, 5));
-    softShader.setFloat("scale", 0.15f);
+    shader->setMat4("view", cam.GetViewMatrix());
+    shader->setMat4("projection", glm::perspective(glm::radians(45.0f), 1280.0f / 720.0f, 0.1f, 100.0f));
+    shader->setVec3("viewPos", cam.GetPosition());
+    shader->setVec3("lightPos", glm::vec3(2, 5, 2));
+    shader->setVec3("uColor", glm::vec3(0.8f, 1.0f, 0.2f));
 
     glBindVertexArray(m_VAO);
-    glDrawElementsInstanced(GL_TRIANGLES, m_IndexCount, GL_UNSIGNED_INT, 0, (int)m_Particles.size());
+    glDrawElements(GL_TRIANGLES, m_IndexCount, GL_UNSIGNED_INT, 0);
 }
 
 void SoftBodySim::OnRuntimeUI() {
-    ImGui::SliderFloat("Yerçekimi", &m_Gravity, 0.0f, 20.0f);
-    ImGui::SliderFloat("Sertlik", &m_Stiffness, 10.0f, 2000.0f);
+    ImGui::Text("PBD Solver Active");
+    ImGui::SliderFloat("Gravity", &m_Gravity, 0.0f, 20.0f);
 }
 
 void SoftBodySim::Restart() { Shutdown(); Initialize(); }

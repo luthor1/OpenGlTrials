@@ -1,25 +1,29 @@
 #include "GalaxySim3D.h"
 #include "MeshLibrary.h"
-#include "Shader.h"
+#include "Engine/ResourceManager.h"
 #include "SimulationManager.h"
-#include <glad/glad.h>
 #include "imgui/imgui.h"
+#include "Engine/Renderer.h"
+#include <glad/glad.h>
 #include <malloc.h>
 #include <random>
 #include <glm/gtc/type_ptr.hpp>
 #include <immintrin.h>
+#include "Engine/Renderer.h"
 
 GalaxySim3D::GalaxySim3D() : m_PosX(nullptr), m_PosY(nullptr), m_PosZ(nullptr),
                            m_VelX(nullptr), m_VelY(nullptr), m_VelZ(nullptr),
-                           m_ColorR(nullptr), m_ColorG(nullptr), m_ColorB(nullptr) {}
+                           m_ColorR(nullptr), m_ColorG(nullptr), m_ColorB(nullptr) {
+    m_Count = 100000; // Masterpiece Count
+}
 
 GalaxySim3D::~GalaxySim3D() { Shutdown(); }
 
 void GalaxySim3D::OnSetupUI() {
-    ImGui::Text("Galaksi Yapılandırması");
-    if (ImGui::SliderInt("Yıldız Sayısı", &m_Count, 1000, 100000)) {
-        Restart();
-    }
+    ImGui::TextColored(ImVec4(0,1,1,1), "MASTERPIECE UNLEASHED");
+    ImGui::Separator();
+    if (ImGui::SliderInt("Star Count", &m_Count, 1000, 150000)) Restart();
+    ImGui::SliderFloat("Universal G", &m_G, 0.0f, 0.002f);
 }
 
 void GalaxySim3D::Initialize() {
@@ -35,31 +39,57 @@ void GalaxySim3D::Initialize() {
     m_ColorB = (float*)_aligned_malloc(count * sizeof(float), 32);
 
     std::default_random_engine gen;
-    std::uniform_real_distribution<float> distRadius(0.5f, 5.0f);
+    std::uniform_real_distribution<float> distRadius(0.1f, 10.0f);
     std::uniform_real_distribution<float> distAngle(0.0f, 2.0f * glm::pi<float>());
+
+    int numArms = 4;
+    float armTwist = 1.2f;
 
     for (int i = 0; i < m_Count; ++i) {
         float r = distRadius(gen);
-        float a = distAngle(gen);
-        m_PosX[i] = r * cos(a);
-        m_PosZ[i] = r * sin(a);
-        m_PosY[i] = (float)((rand() % 100) - 50) * 0.005f;
+        float angle = distAngle(gen);
+        
+        // Quantize angle to arms
+        int armIndex = i % numArms;
+        float armAngle = (armIndex * 2.0f * glm::pi<float>()) / numArms;
+        float twist = r * armTwist;
+        
+        // Spiral arm core
+        float spiralAngle = armAngle + twist;
+        
+        // Add spread/dispersion
+        float spread = 0.8f / (r + 0.5f);
+        float offsetX = (float)((rand() % 100) - 50) * 0.01f * spread;
+        float offsetZ = (float)((rand() % 100) - 50) * 0.01f * spread;
+        
+        m_PosX[i] = r * cos(spiralAngle) + offsetX;
+        m_PosZ[i] = r * sin(spiralAngle) + offsetZ;
+        m_PosY[i] = (float)((rand() % 100) - 50) * 0.001f * (12.0f - r);
 
-        // Orbital velocity (rough approximation)
-        float v = sqrt(0.5f / r);
-        m_VelX[i] = -sin(a) * v;
-        m_VelZ[i] = cos(a) * v;
+        // Orbital velocity
+        float v = sqrt(2.5f / (r + 0.2f));
+        m_VelX[i] = -sin(spiralAngle) * v;
+        m_VelZ[i] = cos(spiralAngle) * v;
         m_VelY[i] = 0.0f;
 
-        m_ColorR[i] = 0.5f + (r * 0.1f);
-        m_ColorG[i] = 0.7f;
-        m_ColorB[i] = 1.0f - (r * 0.1f);
+        // Masterpiece Colors
+        if (r < 1.5f) {
+            // Hot Core: Blue-White
+            m_ColorR[i] = 0.8f + (rand() % 20) * 0.01f;
+            m_ColorG[i] = 0.9f;
+            m_ColorB[i] = 1.0f;
+        } else {
+            // Outer Arms: Pink/Blue/Orange mix
+            float mix = (float)(armIndex) / numArms;
+            m_ColorR[i] = 0.4f + mix * 0.4f;
+            m_ColorG[i] = 0.3f + (1.0f-mix) * 0.2f;
+            m_ColorB[i] = 0.7f + mix * 0.3f;
+        }
     }
 
-    // Mesh Setup
     std::vector<Vertex> meshVertices;
     std::vector<unsigned int> meshIndices;
-    MeshLibrary::GetSphere(meshVertices, meshIndices, 8);
+    MeshLibrary::GetSphere(meshVertices, meshIndices, 4); // Low-poly spheres for 100k stars
     m_IndexCount = (int)meshIndices.size();
 
     glGenVertexArrays(1, &m_VAO);
@@ -73,8 +103,6 @@ void GalaxySim3D::Initialize() {
     glBufferData(GL_ARRAY_BUFFER, meshVertices.size() * sizeof(Vertex), meshVertices.data(), GL_STATIC_DRAW);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, Normal));
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_IBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, meshIndices.size() * sizeof(unsigned int), meshIndices.data(), GL_STATIC_DRAW);
@@ -93,6 +121,7 @@ void GalaxySim3D::Initialize() {
 }
 
 void GalaxySim3D::Update(float dt) {
+    if (dt > 0.02f) dt = 0.02f;
     UpdateSIMD(dt);
 
     std::vector<float> posData(m_Count * 3);
@@ -101,14 +130,9 @@ void GalaxySim3D::Update(float dt) {
         posData[i * 3] = m_PosX[i];
         posData[i * 3 + 1] = m_PosY[i];
         posData[i * 3 + 2] = m_PosZ[i];
-
-        // Heat map based on speed
-        float v2 = m_VelX[i] * m_VelX[i] + m_VelY[i] * m_VelY[i] + m_VelZ[i] * m_VelZ[i];
-        float speed = sqrt(v2) * 5.0f; // Scale for visual impact
-        
-        colorData[i * 3] = 0.5f + speed * 0.5f;     // R
-        colorData[i * 3 + 1] = 0.7f + speed * 0.3f; // G
-        colorData[i * 3 + 2] = 1.0f;                // B (Always blueish-white)
+        colorData[i * 3] = m_ColorR[i];
+        colorData[i * 3 + 1] = m_ColorG[i];
+        colorData[i * 3 + 2] = m_ColorB[i];
     }
     glBindBuffer(GL_ARRAY_BUFFER, m_InstPosVBO);
     glBufferSubData(GL_ARRAY_BUFFER, 0, m_Count * 3 * sizeof(float), posData.data());
@@ -119,9 +143,9 @@ void GalaxySim3D::Update(float dt) {
 void GalaxySim3D::UpdateSIMD(float dt) {
     __m256 dtV = _mm256_set1_ps(dt);
     __m256 gV = _mm256_set1_ps(m_G);
-    __m256 softeningV = _mm256_set1_ps(m_Softening);
+    __m256 softeningV = _mm256_set1_ps(m_Softening + 0.1f);
+    __m256 centralMassV = _mm256_set1_ps(500.0f);
 
-    // Optimized Galaxy Physics: Focus on central mass + self-velocity
     for (int i = 0; i < m_Count; i += 8) {
         __m256 px = _mm256_load_ps(&m_PosX[i]);
         __m256 py = _mm256_load_ps(&m_PosY[i]);
@@ -130,60 +154,48 @@ void GalaxySim3D::UpdateSIMD(float dt) {
         __m256 vy = _mm256_load_ps(&m_VelY[i]);
         __m256 vz = _mm256_load_ps(&m_VelZ[i]);
 
-        // Central Force toward (0,0,0)
-        __m256 distSq = _mm256_add_ps(_mm256_mul_ps(px, px), _mm256_add_ps(_mm256_mul_ps(py, py), _mm256_mul_ps(pz, pz)));
-        distSq = _mm256_add_ps(distSq, softeningV);
-        __m256 invDist = _mm256_rsqrt_ps(distSq);
-        __m256 invDist3 = _mm256_mul_ps(invDist, _mm256_mul_ps(invDist, invDist));
-        __m256 massForce = _mm256_mul_ps(gV, _mm256_set1_ps(100.0f)); // Big central mass
-        __m256 f = _mm256_mul_ps(massForce, invDist3);
+        __m256 d2 = _mm256_add_ps(_mm256_mul_ps(px, px), _mm256_add_ps(_mm256_mul_ps(py, py), _mm256_mul_ps(pz, pz)));
+        d2 = _mm256_add_ps(d2, softeningV);
+        __m256 invD = _mm256_rsqrt_ps(d2);
+        __m256 invD3 = _mm256_mul_ps(invD, _mm256_mul_ps(invD, invD));
+        __m256 f = _mm256_mul_ps(_mm256_mul_ps(gV, centralMassV), invD3);
 
-        __m256 ax = _mm256_mul_ps(_mm256_sub_ps(_mm256_setzero_ps(), px), f);
-        __m256 ay = _mm256_mul_ps(_mm256_sub_ps(_mm256_setzero_ps(), py), f);
-        __m256 az = _mm256_mul_ps(_mm256_sub_ps(_mm256_setzero_ps(), pz), f);
-
-        vx = _mm256_add_ps(vx, _mm256_mul_ps(ax, dtV));
-        vy = _mm256_add_ps(vy, _mm256_mul_ps(ay, dtV));
-        vz = _mm256_add_ps(vz, _mm256_mul_ps(az, dtV));
+        vx = _mm256_add_ps(vx, _mm256_mul_ps(_mm256_sub_ps(_mm256_setzero_ps(), px), _mm256_mul_ps(f, dtV)));
+        vz = _mm256_add_ps(vz, _mm256_mul_ps(_mm256_sub_ps(_mm256_setzero_ps(), pz), _mm256_mul_ps(f, dtV)));
+        vy = _mm256_add_ps(vy, _mm256_mul_ps(_mm256_sub_ps(_mm256_setzero_ps(), py), _mm256_mul_ps(f, dtV)));
 
         px = _mm256_add_ps(px, _mm256_mul_ps(vx, dtV));
         py = _mm256_add_ps(py, _mm256_mul_ps(vy, dtV));
         pz = _mm256_add_ps(pz, _mm256_mul_ps(vz, dtV));
 
-        _mm256_store_ps(&m_PosX[i], px);
-        _mm256_store_ps(&m_PosY[i], py);
-        _mm256_store_ps(&m_PosZ[i], pz);
-        _mm256_store_ps(&m_VelX[i], vx);
-        _mm256_store_ps(&m_VelY[i], vy);
-        _mm256_store_ps(&m_VelZ[i], vz);
+        _mm256_store_ps(&m_PosX[i], px); _mm256_store_ps(&m_PosY[i], py); _mm256_store_ps(&m_PosZ[i], pz);
+        _mm256_store_ps(&m_VelX[i], vx); _mm256_store_ps(&m_VelY[i], vy); _mm256_store_ps(&m_VelZ[i], vz);
     }
 }
 
 void GalaxySim3D::Render() {
-    static Shader starShader("assets/instance_3d_vertex.glsl", "assets/instance_3d_fragment.glsl");
-    starShader.use();
-    
+    static auto shader = ResourceManager::Get().LoadShader("StarShader", "assets/star_vertex.glsl", "assets/star_fragment.glsl");
+    shader->use();
     Camera& cam = SimulationManager::Get().GetCamera();
-    glm::mat4 view = cam.GetViewMatrix();
-    glm::mat4 projection = glm::perspective(glm::radians(45.0f), 1280.0f / 720.0f, 0.1f, 1000.0f);
     
-    starShader.setMat4("view", view);
-    starShader.setMat4("projection", projection);
-    starShader.setVec3("viewPos", cam.GetPosition());
-    starShader.setVec3("lightPos", glm::vec3(0, 10, 0));
-    starShader.setFloat("scale", m_Scale);
+    float aspect = (float)Renderer::GetViewportWidth() / (float)Renderer::GetViewportHeight();
+    glm::mat4 projection = glm::perspective(glm::radians(45.0f), aspect, 0.1f, 1000.0f);
+    
+    shader->setMat4("view", cam.GetViewMatrix());
+    shader->setMat4("projection", projection);
+    shader->setFloat("scale", m_Scale);
 
     glBindVertexArray(m_VAO);
     glDrawElementsInstanced(GL_TRIANGLES, m_IndexCount, GL_UNSIGNED_INT, 0, m_Count);
 }
 
 void GalaxySim3D::OnRuntimeUI() {
-    ImGui::SliderFloat("Yerçekimi (G)", &m_G, 0.0f, 0.001f);
-    ImGui::SliderFloat("Yıldız Boyutu", &m_Scale, 0.001f, 0.1f);
+    ImGui::Text("Active Stars: %d", m_Count);
+    ImGui::SliderFloat("Gravity", &m_G, 0.0f, 0.005f);
+    ImGui::SliderFloat("Star Scale", &m_Scale, 0.001f, 0.05f);
 }
 
 void GalaxySim3D::Restart() { Shutdown(); Initialize(); }
-
 void GalaxySim3D::Shutdown() {
     if (m_PosX) { 
         _aligned_free(m_PosX); _aligned_free(m_PosY); _aligned_free(m_PosZ);
