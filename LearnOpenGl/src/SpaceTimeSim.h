@@ -41,4 +41,5 @@ private:
 
     void CreateGrid(int resolution, float size);
     void CreatePlanetMesh();
+    void InitializeSolarSystem();
 };

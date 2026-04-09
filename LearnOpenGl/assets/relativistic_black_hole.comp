@@ -1,0 +1,132 @@
+#version 430 core
+
+layout(local_size_x = 16, local_size_y = 16) in;
+layout(rgba32f, binding = 0) uniform image2D imgOutput;
+
+uniform vec3 uCamPos;
+uniform mat4 uInvView;
+uniform mat4 uInvProj;
+uniform float uTime;
+
+const float G = 1.0;
+const float M = 1.0;
+const float Rs = 2.0 * G * M; // Schwarzschild radius
+const float stepSize = 0.15;
+const int maxSteps = 250;
+
+struct Ray {
+    vec3 p;
+    vec3 v;
+};
+
+// Accretion Disk Parameters
+const float diskInner = 3.0 * Rs;
+const float diskOuter = 8.0 * Rs;
+
+float get_rs(vec3 p) {
+    return length(p);
+}
+
+// RK4 Geodesic Integration in Schwarzschild metric (simplified for visual realism)
+// Acceleration toward center: a = -1.5 * Rs * (L^2 / r^5)
+// where L is angular momentum.
+vec3 get_accel(vec3 p, vec3 v) {
+    float r = length(p);
+    if (r < 0.001) return vec3(0.0);
+    vec3 L = cross(p, v);
+    float h2 = dot(L, L);
+    return -1.5 * Rs * h2 * p / pow(r, 5.0);
+}
+
+vec3 get_stars(vec3 dir) {
+    // Basic procedural starfield for the background
+    float res = 50.0;
+    vec3 st = dir * res;
+    float noise = fract(sin(dot(floor(st), vec3(12.9898, 78.233, 45.164))) * 43758.5453);
+    if (noise > 0.995) return vec3(noise);
+    return vec3(0.01, 0.01, 0.02); // Deep space blue/black
+}
+
+vec3 get_disk_color(float r, float phi) {
+    // Visual temperature mapping for the accretion disk
+    float t = (r - diskInner) / (diskOuter - diskInner);
+    vec3 innerColor = vec3(1.0, 0.5, 0.1); // Hot orange
+    vec3 outerColor = vec3(0.1, 0.3, 1.0); // Cooler blue
+    vec3 col = mix(innerColor, outerColor, t);
+    
+    // Add some noise/swirls
+    float swirl = sin(phi * 8.0 + uTime * 2.0 + r * 0.5);
+    col *= (0.8 + 0.2 * swirl);
+    
+    // Fade at edges
+    float alpha = smoothstep(0.0, 0.1, t) * smoothstep(1.0, 0.9, t);
+    return col * alpha;
+}
+
+void main() {
+    ivec2 texelCoord = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 size = imageSize(imgOutput);
+    if (texelCoord.x >= size.x || texelCoord.y >= size.y) return;
+
+    vec2 uv = (vec2(texelCoord) / vec2(size)) * 2.0 - 1.0;
+    
+    // Ray Generation
+    vec4 target = uInvProj * vec4(uv, 1.0, 1.0);
+    vec3 rayDir = normalize(vec3(uInvView * vec4(normalize(target.xyz), 0.0)));
+    
+    Ray ray;
+    ray.p = uCamPos;
+    ray.v = rayDir;
+
+    vec3 finalColor = vec3(0.0);
+    bool hitBH = false;
+    float totalDist = 0.0;
+
+    for (int i = 0; i < maxSteps; ++i) {
+        float r = length(ray.p);
+        
+        // 1. Event Horizon Check
+        if (r < 1.01 * Rs) {
+            hitBH = true;
+            break;
+        }
+
+        // 2. Accretion Disk Intersection (Approximate as Y=0 plane)
+        if (ray.p.y * (ray.p.y + ray.v.y * stepSize) < 0.0) {
+            float t = -ray.p.y / ray.v.y;
+            vec3 intersect = ray.p + ray.v * t;
+            float ir = length(intersect);
+            if (ir > diskInner && ir < diskOuter) {
+                float phi = atan(intersect.z, intersect.x);
+                finalColor += get_disk_color(ir, phi) * 0.7; // Additive disk glow
+            }
+        }
+
+        // 3. RK4 Integration step
+        vec3 k1_v = get_accel(ray.p, ray.v) * stepSize;
+        vec3 k1_p = ray.v * stepSize;
+
+        vec3 k2_v = get_accel(ray.p + k1_p * 0.5, ray.v + k1_v * 0.5) * stepSize;
+        vec3 k2_p = (ray.v + k1_v * 0.5) * stepSize;
+
+        vec3 k3_v = get_accel(ray.p + k2_p * 0.5, ray.v + k2_v * 0.5) * stepSize;
+        vec3 k3_p = (ray.v + k2_v * 0.5) * stepSize;
+
+        vec3 k4_v = get_accel(ray.p + k3_p, ray.v + k3_v) * stepSize;
+        vec3 k4_p = (ray.v + k3_v) * stepSize;
+
+        ray.v += (k1_v + 2.0*k2_v + 2.0*k3_v + k4_v) / 6.0;
+        ray.p += (k1_p + 2.0*k2_p + 2.0*k3_p + k4_p) / 6.0;
+        
+        totalDist += stepSize;
+        if (totalDist > 100.0) break;
+    }
+
+    if (!hitBH) {
+        finalColor += get_stars(normalize(ray.v));
+    } else {
+        finalColor = vec3(0.0); // Shadow of the black hole
+    }
+
+    imageStore(imgOutput, texelCoord, vec4(finalColor, 1.0));
+}

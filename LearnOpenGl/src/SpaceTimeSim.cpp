@@ -14,26 +14,35 @@ SpaceTimeSim::SpaceTimeSim() : m_GridVAO(0), m_PlanetVAO(0) {}
 SpaceTimeSim::~SpaceTimeSim() { Shutdown(); }
 
 void SpaceTimeSim::Initialize() {
-    // 1. Setup Objects (Güneş Sistemi Benzeri)
+    m_G = 0.5f;
+    InitializeSolarSystem();
+
+    // 2. Create Meshes (Larger for solar system)
+    CreateGrid(100, 150.0f);
+    CreatePlanetMesh();
+}
+
+void SpaceTimeSim::InitializeSolarSystem() {
     m_Objects.clear();
     
-    // Güneş
-    m_Objects.push_back({ glm::vec3(0,0,0), glm::vec3(0,0,0), 50.0f, 1.2f, glm::vec3(1, 0.9, 0.2), "Sun" });
-    
-    // Gezegen 1 (Stabil yörünge denemesi)
-    // v = sqrt(G*M/r)
-    float r1 = 8.0f;
-    float v1 = sqrt(m_G * 50.0f / r1);
-    m_Objects.push_back({ glm::vec3(r1, 0, 0), glm::vec3(0, 0, v1), 0.5f, 0.3f, glm::vec3(0.2, 0.6, 1.0), "Planet A" });
+    // Sun (Center)
+    float sunMass = 2000.0f;
+    m_Objects.push_back({ glm::vec3(0,0,0), glm::vec3(0,0,0), sunMass, 3.5f, glm::vec3(1.0, 0.8, 0.0), "Sun" });
 
-    // Gezegen 2
-    float r2 = 12.0f;
-    float v2 = sqrt(m_G * 50.0f / r2);
-    m_Objects.push_back({ glm::vec3(0, 0, -r2), glm::vec3(v2, 0, 0), 0.3f, 0.25f, glm::vec3(1.0, 0.4, 0.2), "Planet B" });
+    auto AddPlanet = [&](std::string name, float dist, float mass, float radius, glm::vec3 color) {
+        float v = sqrt(m_G * sunMass / dist);
+        m_Objects.push_back({ glm::vec3(dist, 0, 0), glm::vec3(0, 0, v), mass, radius, color, name });
+    };
 
-    // 2. Create Meshes
-    CreateGrid(80, 40.0f);
-    CreatePlanetMesh();
+    // Scaled Solar System
+    AddPlanet("Mercury", 8.0f,   0.05f, 0.2f, glm::vec3(0.7, 0.7, 0.7));
+    AddPlanet("Venus",   14.0f,  0.8f,  0.4f, glm::vec3(0.9, 0.7, 0.5));
+    AddPlanet("Earth",   20.0f,  1.0f,  0.45f, glm::vec3(0.2, 0.5, 1.0));
+    AddPlanet("Mars",    28.0f,  0.15f, 0.3f, glm::vec3(0.9, 0.3, 0.1));
+    AddPlanet("Jupiter", 45.0f,  30.0f, 1.2f, glm::vec3(0.8, 0.6, 0.4));
+    AddPlanet("Saturn",  60.0f,  20.0f, 1.0f, glm::vec3(0.9, 0.8, 0.6));
+    AddPlanet("Uranus",  75.0f,  10.0f, 0.7f, glm::vec3(0.6, 0.8, 0.9));
+    AddPlanet("Neptune", 90.0f,  8.0f,  0.7f, glm::vec3(0.3, 0.4, 0.9));
 }
 
 void SpaceTimeSim::Update(float dt) {
@@ -111,15 +120,19 @@ void SpaceTimeSim::Render() {
 }
 
 void SpaceTimeSim::OnRuntimeUI() {
-    ImGui::TextColored(ImVec4(0,1,1,1), "SPACE-TIME ENGINE");
+    ImGui::TextColored(ImVec4(0,1,1,1), "SOLAR SYSTEM ENGINE (9 BODIES)");
     ImGui::Checkbox("Show Gravity Grid", &m_ShowGrid);
-    ImGui::SliderFloat("G Constant", &m_G, 0.1f, 10.0f);
+    ImGui::SliderFloat("Universal G", &m_G, 0.01f, 2.0f);
     
-    if (ImGui::Button("Reset Orbit")) Restart();
+    if (ImGui::Button("Reset Solar System")) {
+        InitializeSolarSystem();
+        Restart();
+    }
     
     ImGui::Separator();
-    for (auto& obj : m_Objects) {
-        ImGui::Text("%s: Pos(%.2f, %.2f, %.2f)", obj.Name.c_str(), obj.Position.x, obj.Position.y, obj.Position.z);
+    ImGui::Text("Planetary Telemetry:");
+    for (int i = 0; i < (int)m_Objects.size(); ++i) {
+        ImGui::BulletText("%s: Dist %.1f", m_Objects[i].Name.c_str(), glm::length(m_Objects[i].Position));
     }
 }
 

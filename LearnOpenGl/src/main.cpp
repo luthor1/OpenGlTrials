@@ -7,12 +7,14 @@
 #include "FluidSimSPH.h"
 #include "SoftBodySim.h"
 #include "SpaceTimeSim.h"
+#include "RelativisticSim.h"
 
 int main()
 {
     Application app;
 
     // Register Simulations
+    SimulationManager::Get().RegisterSimulation(std::make_unique<RelativisticSim>());
     SimulationManager::Get().RegisterSimulation(std::make_unique<SpaceTimeSim>());
     SimulationManager::Get().RegisterSimulation(std::make_unique<FluidSimMasterpiece>());
     SimulationManager::Get().RegisterSimulation(std::make_unique<SoftBodySim>());
