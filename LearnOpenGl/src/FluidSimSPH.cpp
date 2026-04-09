@@ -2,6 +2,7 @@
 #include "MeshLibrary.h"
 #include "Shader.h"
 #include "SimulationManager.h"
+#include "Engine/SpatialGrid.h"
 #include <glad/glad.h>
 #include "imgui/imgui.h"
 #include <random>
@@ -57,12 +58,17 @@ void FluidSimSPH::Initialize() {
 }
 
 void FluidSimSPH::ComputeDensityPressure() {
+    SpatialGrid grid(m_SmoothingRadius);
+    for (int i = 0; i < m_Particles.size(); ++i) grid.Insert(i, m_Particles[i].Position);
+
     const float h2 = m_SmoothingRadius * m_SmoothingRadius;
-    const float POLY6 = 315.0f / (64.0f * glm::pi<float>() * pow(m_SmoothingRadius, 9));
+    const float POLY6 = 315.0f / (64.0f * glm::pi<float>() * powf(m_SmoothingRadius, 9.0f));
 
     for (auto& pi : m_Particles) {
         pi.Density = 0.0f;
-        for (auto& pj : m_Particles) {
+        auto neighbors = grid.GetNeighbors(pi.Position);
+        for (int idx : neighbors) {
+            auto& pj = m_Particles[idx];
             glm::vec3 r = pj.Position - pi.Position;
             float r2 = glm::dot(r, r);
             if (r2 < h2) {
@@ -75,24 +81,26 @@ void FluidSimSPH::ComputeDensityPressure() {
 }
 
 void FluidSimSPH::ComputeForces() {
-    const float SPIKY_GRAD = -45.0f / (glm::pi<float>() * pow(m_SmoothingRadius, 6));
-    const float VISC_LAP = 45.0f / (glm::pi<float>() * pow(m_SmoothingRadius, 6));
+    SpatialGrid grid(m_SmoothingRadius);
+    for (int i = 0; i < (int)m_Particles.size(); ++i) grid.Insert(i, m_Particles[i].Position);
+
+    const float SPIKY_GRAD = -45.0f / (glm::pi<float>() * powf(m_SmoothingRadius, 6.0f));
+    const float VISC_LAP = 45.0f / (glm::pi<float>() * powf(m_SmoothingRadius, 6.0f));
 
     for (int i = 0; i < m_Particles.size(); ++i) {
         glm::vec3 fPressure(0.0f);
         glm::vec3 fViscosity(0.0f);
         auto& pi = m_Particles[i];
 
-        for (int j = 0; j < m_Particles.size(); ++j) {
-            if (i == j) continue;
-            auto& pj = m_Particles[j];
+        auto neighbors = grid.GetNeighbors(pi.Position);
+        for (int idx : neighbors) {
+            if (i == idx) continue;
+            auto& pj = m_Particles[idx];
             glm::vec3 r = pj.Position - pi.Position;
             float dist = glm::length(r);
 
             if (dist < m_SmoothingRadius && dist > 0.0001f) {
-                // Pressure force
                 fPressure += -glm::normalize(r) * (pi.Pressure + pj.Pressure) / (2.0f * pj.Density) * SPIKY_GRAD * (float)std::pow(m_SmoothingRadius - dist, 2);
-                // Viscosity force
                 fViscosity += m_Viscosity * (pj.Velocity - pi.Velocity) / pj.Density * VISC_LAP * (m_SmoothingRadius - dist);
             }
         }
