@@ -1,0 +1,198 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\Editor\EditorLayer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\Engine\Application.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\Engine\Renderer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\Engine\ResourceManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\Engine\Window.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\FallSim.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\FluidSimMasterpiece.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\FluidSimSPH.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\Framebuffer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\GalaxySim3D.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\GravitySim.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\MeshLibrary.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\Octree.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\ParticleSystem.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\RelativisticSim.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\SimulationManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\SoftBodySim.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\SpaceTimeSim.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\glad.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\imgui\imgui.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\imgui\imgui_demo.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\imgui\imgui_draw.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\imgui\imgui_impl_glfw.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\imgui\imgui_impl_opengl3.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\imgui\imgui_tables.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\imgui\imgui_widgets.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\Camera.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\Editor\EditorLayer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\Engine\Application.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\Engine\Renderer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\Engine\ResourceManager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\Engine\SpatialGrid.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\Engine\Window.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\FallSim.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\FluidSimMasterpiece.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\FluidSimSPH.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\Framebuffer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\GalaxySim3D.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\GravitySim.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\ISimulation.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\MeshLibrary.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\Octree.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\ParticleSystem.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\PhysicsUtility.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\Picker.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\RelativisticSim.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\Shader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\SimulationManager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\SoftBodySim.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\SpaceTimeSim.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\imgui\imconfig.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\imgui\imgui.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\imgui\imgui_impl_glfw.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\imgui\imgui_impl_opengl3.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\imgui\imgui_impl_opengl3_loader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\imgui\imgui_internal.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\imgui\imstb_rectpack.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\imgui\imstb_textedit.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Ali\Documents\c++\OpenGlTrials\LearnOpenGl\src\imgui\imstb_truetype.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\Ali\Documents\c++\OpenGlTrials\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{95F963C3-3013-326D-84BF-A3668A51178E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{8F77337A-B4E2-3B7C-99A6-26DAB48BE505}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

@@ -1,0 +1,3 @@
+C:/Users/Ali/Documents/c++/OpenGlTrials/build/CMakeFiles/PhysicsStudio.dir
+C:/Users/Ali/Documents/c++/OpenGlTrials/build/CMakeFiles/ALL_BUILD.dir
+C:/Users/Ali/Documents/c++/OpenGlTrials/build/CMakeFiles/ZERO_CHECK.dir

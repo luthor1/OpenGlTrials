@@ -23,6 +23,7 @@ file(GLOB_RECURSE SOURCES
     "${SRC_DIR}/*.c"
     "${SRC_DIR}/*.h"
 )
+list(REMOVE_ITEM SOURCES "${SRC_DIR}/detect_simd.cpp")
 
 add_executable(${PROJECT_NAME} ${SOURCES})
 
